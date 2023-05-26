@@ -149,45 +149,49 @@ function trigger(target: object, key: any, type: TriggerType) {
 
 const ITERATE_KEY = Symbol();
 
-const proxyData = new Proxy(data, {
-    get(target, key, receiver) {
-        track(target, key);
-        return Reflect.get(target, key, receiver);
-    },
-    // trap set and add
-    set(target, key, newVal, receiver) {
-        const oldVal = target[key];
-        const type: TriggerType = Object.prototype.hasOwnProperty.call(target, key) ? TriggerType.SET : TriggerType.ADD;
-        const res = Reflect.set(target, key, newVal, receiver)
-        // The side effect function should not be triggered when oldVal is equal to newVal or both oldVal and newVal are equal to NaN. 
-        if (oldVal !== newVal && (oldVal === oldVal || newVal === newVal)) {
-            trigger(target, key, type);
-        }
-        return res;
-    },
-    // trap key in obj
-    has(target: object, key: any) {
-        track(target, key);
-        return Reflect.has(target, key);
-    },
-    // trap for ... in
-    ownKeys(target) {
-        track(target, ITERATE_KEY);
-        return Reflect.ownKeys(target);
-    },
-    // trap delete property
-    // when delete a property, for...in should be triggered
-    deleteProperty(target: object, key: string | symbol) {
-        const hasKey = Object.prototype.hasOwnProperty.call(target, key);
-        const deleted = Reflect.deleteProperty(target, key);
+function reactive<T extends object>(data: T) {
+    return new Proxy(data, {
+        get(target, key, receiver) {
+            track(target, key);
+            return Reflect.get(target, key, receiver);
+        },
+        // trap set and add
+        set(target, key, newVal, receiver) {
+            const oldVal = target[key];
+            const type: TriggerType = Object.prototype.hasOwnProperty.call(target, key) ? TriggerType.SET : TriggerType.ADD;
+            const res = Reflect.set(target, key, newVal, receiver);
+            // The side effect function should not be triggered when oldVal is equal to newVal or both oldVal and newVal are equal to NaN. 
+            if (oldVal !== newVal && (oldVal === oldVal || newVal === newVal)) {
+                trigger(target, key, type);
+            }
+            return res;
+        },
+        // trap key in obj
+        has(target: object, key: any) {
+            track(target, key);
+            return Reflect.has(target, key);
+        },
+        // trap for ... in
+        ownKeys(target) {
+            track(target, ITERATE_KEY);
+            return Reflect.ownKeys(target);
+        },
+        // trap delete property
+        // when delete a property, for...in should be triggered
+        deleteProperty(target: object, key: string | symbol) {
+            const hasKey = Object.prototype.hasOwnProperty.call(target, key);
+            const deleted = Reflect.deleteProperty(target, key);
 
-        if (hasKey && deleted) {
-            trigger(target, key, TriggerType.DELETE);
+            if (hasKey && deleted) {
+                trigger(target, key, TriggerType.DELETE);
+            }
+            return deleted;
         }
-        return deleted;
-    }
 
-});
+    });
+}
+
+const proxyData = reactive(data);
 
 effect(() => {
     console.log(proxyData.bar);
