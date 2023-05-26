@@ -156,9 +156,13 @@ const proxyData = new Proxy(data, {
     },
     // trap set and add
     set(target, key, newVal, receiver) {
+        const oldVal = target[key];
         const type: TriggerType = Object.prototype.hasOwnProperty.call(target, key) ? TriggerType.SET : TriggerType.ADD;
-        const res = Reflect.set(target, key, newVal, receiver);
-        trigger(target, key, type);
+        const res = Reflect.set(target, key, newVal, receiver)
+        // The side effect function should not be triggered when oldVal is equal to newVal or both oldVal and newVal are equal to NaN. 
+        if (oldVal !== newVal && (oldVal === oldVal || newVal === newVal)) {
+            trigger(target, key, type);
+        }
         return res;
     },
     // trap key in obj
