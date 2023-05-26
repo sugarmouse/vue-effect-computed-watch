@@ -8,6 +8,8 @@ type ReactiveEffectOptions = {
     scheduler?: (reactiveEffect: ReactiveEffect) => any;
 };
 
+enum TriggerType { ADD, SET }
+
 const data = {
     bar: 1,
     foo: 1
@@ -118,16 +120,23 @@ function track(target: object, key: any) {
  * used to identify which property has been updated and trigger any associated reactive effects.
  * @returns If `depsMap` or `effects` are not found, `undefined` is being returned.
  */
-function trigger(target: object, key: any) {
+function trigger(target: object, key: any, type:TriggerType) {
     const depsMap = bucket.get(target);
     if (!depsMap) return;
     const effects = depsMap.get(key);
-    if (!effects) return;
 
     const effectsToRun: Deps = new Set();
-    effects.forEach(effect => {
+
+    effects && effects.forEach(effect => {
         if (effect !== activeEffect) effectsToRun.add(effect);
     });
+
+    if (type === TriggerType.ADD) {
+        const iterateEffects = depsMap.get(ITERATE_KEY);
+        iterateEffects && iterateEffects.forEach(effect => {
+            if (effect !== activeEffect) effectsToRun.add(effect);
+        });
+    }
 
     effectsToRun.forEach(reactiveEffect => {
         if (reactiveEffect.options && reactiveEffect.options.scheduler) {
@@ -138,16 +147,29 @@ function trigger(target: object, key: any) {
     });
 }
 
+const ITERATE_KEY = Symbol();
 
 const proxyData = new Proxy(data, {
     get(target, key, receiver) {
         track(target, key);
         return Reflect.get(target, key, receiver);
     },
+    // trap set and add
     set(target, key, newVal, receiver) {
+        const type: TriggerType = Object.prototype.hasOwnProperty.call(target, key) ? TriggerType.SET : TriggerType.ADD;
         const res = Reflect.set(target, key, newVal, receiver);
-        trigger(target, key);
+        trigger(target, key, type);
         return res;
+    },
+    // trap key in obj
+    has(target: object, key: any) {
+        track(target, key);
+        return Reflect.has(target, key);
+    },
+    // trap for ... in
+    ownKeys(target) {
+        track(target, ITERATE_KEY);
+        return Reflect.ownKeys(target);
     }
 });
 
