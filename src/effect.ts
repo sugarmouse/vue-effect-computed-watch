@@ -8,7 +8,7 @@ type ReactiveEffectOptions = {
     scheduler?: (reactiveEffect: ReactiveEffect) => any;
 };
 
-enum TriggerType { ADD, SET }
+enum TriggerType { ADD, SET, DELETE }
 
 const data = {
     bar: 1,
@@ -120,7 +120,7 @@ function track(target: object, key: any) {
  * used to identify which property has been updated and trigger any associated reactive effects.
  * @returns If `depsMap` or `effects` are not found, `undefined` is being returned.
  */
-function trigger(target: object, key: any, type:TriggerType) {
+function trigger(target: object, key: any, type: TriggerType) {
     const depsMap = bucket.get(target);
     if (!depsMap) return;
     const effects = depsMap.get(key);
@@ -131,7 +131,7 @@ function trigger(target: object, key: any, type:TriggerType) {
         if (effect !== activeEffect) effectsToRun.add(effect);
     });
 
-    if (type === TriggerType.ADD) {
+    if (type === TriggerType.ADD || type === TriggerType.DELETE) {
         const iterateEffects = depsMap.get(ITERATE_KEY);
         iterateEffects && iterateEffects.forEach(effect => {
             if (effect !== activeEffect) effectsToRun.add(effect);
@@ -170,7 +170,19 @@ const proxyData = new Proxy(data, {
     ownKeys(target) {
         track(target, ITERATE_KEY);
         return Reflect.ownKeys(target);
+    },
+    // trap delete property
+    // when delete a property, for...in should be triggered
+    deleteProperty(target: object, key: string | symbol) {
+        const hasKey = Object.prototype.hasOwnProperty.call(target, key);
+        const deleted = Reflect.deleteProperty(target, key);
+
+        if (hasKey && deleted) {
+            trigger(target, key, TriggerType.DELETE);
+        }
+        return deleted;
     }
+
 });
 
 effect(() => {
