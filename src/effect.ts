@@ -118,7 +118,7 @@ function track(target: object, key: any) {
  * used to identify which property has been updated and trigger any associated reactive effects.
  * @returns If `depsMap` or `effects` are not found, `undefined` is being returned.
  */
-function triger(target: object, key: any) {
+function trigger(target: object, key: any) {
     const depsMap = bucket.get(target);
     if (!depsMap) return;
     const effects = depsMap.get(key);
@@ -146,7 +146,7 @@ const proxyData = new Proxy(data, {
     },
     set(target, key, newVal, receiver) {
         const res = Reflect.set(target, key, newVal, receiver);
-        triger(target, key);
+        trigger(target, key);
         return res;
     }
 });
