@@ -152,17 +152,27 @@ const ITERATE_KEY = Symbol();
 function reactive<T extends object>(data: T) {
     return new Proxy(data, {
         get(target, key, receiver) {
+            // When you want to access the __raw property of the receiver, 
+            // return the object obj that is being proxied by the receiver. 
+            if (key === '__raw') {
+                return target;
+            }
             track(target, key);
             return Reflect.get(target, key, receiver);
         },
         // trap set and add
         set(target, key, newVal, receiver) {
+            // @ts-ignore
             const oldVal = target[key];
             const type: TriggerType = Object.prototype.hasOwnProperty.call(target, key) ? TriggerType.SET : TriggerType.ADD;
             const res = Reflect.set(target, key, newVal, receiver);
-            // The side effect function should not be triggered when oldVal is equal to newVal or both oldVal and newVal are equal to NaN. 
-            if (oldVal !== newVal && (oldVal === oldVal || newVal === newVal)) {
-                trigger(target, key, type);
+            // trigger side effect only when receiver is the Proxy of target
+            if (target === receiver.__raw) {
+                // The side effect function should not be triggered 
+                // when oldVal is equal to newVal or both oldVal and newVal are equal to NaN. 
+                if (oldVal !== newVal && (oldVal === oldVal || newVal === newVal)) {
+                    trigger(target, key, type);
+                }
             }
             return res;
         },
@@ -191,11 +201,19 @@ function reactive<T extends object>(data: T) {
     });
 }
 
-const proxyData = reactive(data);
+// example: modifying properties on the prototype chain may trigger unnecessary side effects. 
+const obj = {} as { bar?: number, [key: string]: any; };
+const proto = { bar: 1 };
+
+const child: { bar?: number, [key: string]: any; } = reactive(obj);
+const parent = reactive(proto);
+
+Object.setPrototypeOf(child, parent);
 
 effect(() => {
-    console.log(proxyData.bar);
+    console.log(child.bar);
 });
 
-proxyData.bar++;
+child.bar = 2;
 
+export { };
