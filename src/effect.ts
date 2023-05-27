@@ -157,7 +157,15 @@ function shallowReactive<T extends object>(obj: T): T {
     return createReactive(obj, true);
 }
 
-function createReactive<T extends object>(data: T, isShallow: boolean = false) {
+function readonly<T extends object>(obj: T):T {
+    return createReactive(obj, false, true);
+}
+
+function shallowReadonly<T extends object>(obj: T):T {
+    return createReactive(obj, true, true);
+}
+
+function createReactive<T extends object>(data: T, isShallow: boolean = false, isReadonly = false) {
     return new Proxy(data, {
         get(target, key, receiver) {
             // When you want to access the __raw property of the receiver, 
@@ -165,18 +173,22 @@ function createReactive<T extends object>(data: T, isShallow: boolean = false) {
             if (key === '__raw') {
                 return target;
             }
-            track(target, key);
+            if (!isReadonly) track(target, key);
 
             const res = Reflect.get(target, key, receiver);
             if (isShallow) return res;
             // for deep reactive
             if (typeof res === 'object' && res !== null) {
-                return reactive(res);
+                return isReadonly ? readonly(res) : reactive(res);
             }
             return res;
         },
         // trap set and add
         set(target, key, newVal, receiver) {
+            if (isReadonly) {
+                console.warn(`propert ${key.toString()} is readonly`);
+                return true;
+            }
             // @ts-ignore
             const oldVal = target[key];
             const type: TriggerType = Object.prototype.hasOwnProperty.call(target, key) ? TriggerType.SET : TriggerType.ADD;
@@ -204,6 +216,10 @@ function createReactive<T extends object>(data: T, isShallow: boolean = false) {
         // trap delete property
         // when delete a property, for...in should be triggered
         deleteProperty(target: object, key: string | symbol) {
+            if (isReadonly) {
+                console.warn(`propert ${key.toString()} is readonly`);
+                return true;
+            }
             const hasKey = Object.prototype.hasOwnProperty.call(target, key);
             const deleted = Reflect.deleteProperty(target, key);
 
@@ -217,8 +233,7 @@ function createReactive<T extends object>(data: T, isShallow: boolean = false) {
 }
 
 // example: 
-
-const obj = shallowReactive({ foo: { bar: 1 } });
+const obj = readonly({ foo: { bar: 1 } });
 
 effect(() => {
     console.log(obj.foo.bar);
