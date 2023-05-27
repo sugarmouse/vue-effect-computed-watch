@@ -120,18 +120,37 @@ function track(target: object, key: any) {
  * used to identify which property has been updated and trigger any associated reactive effects.
  * @returns If `depsMap` or `effects` are not found, `undefined` is being returned.
  */
-function trigger(target: object, key: any, type: TriggerType) {
+function trigger(target: object, key: any, type: TriggerType, newVal?: any) {
     const depsMap = bucket.get(target);
     if (!depsMap) return;
     const effects = depsMap.get(key);
 
     const effectsToRun: Deps = new Set();
 
+    // Modifying the length of an array will affect the element which index greater than the new length value,
+    // so side effects for the element should be trggered.
+    if(Array.isArray(target) && key === 'length') {
+            depsMap.forEach((effects, key) =>{
+                if(key >= newVal){
+                    effects.forEach(effect => {
+                        if(effect !== activeEffect) effectsToRun.add(effect)
+                    })
+                }
+            })
+    }
+
     effects && effects.forEach(effect => {
         if (effect !== activeEffect) effectsToRun.add(effect);
     });
 
     if (type === TriggerType.ADD || type === TriggerType.DELETE) {
+
+        // Modifying array elements through index may affect the length property. 
+        const arrLengthEffects = depsMap.get('length');
+        arrLengthEffects && arrLengthEffects.forEach(effect => {
+            if (effect !== activeEffect) effectsToRun.add(effect);
+        });
+
         const iterateEffects = depsMap.get(ITERATE_KEY);
         iterateEffects && iterateEffects.forEach(effect => {
             if (effect !== activeEffect) effectsToRun.add(effect);
@@ -157,11 +176,11 @@ function shallowReactive<T extends object>(obj: T): T {
     return createReactive(obj, true);
 }
 
-function readonly<T extends object>(obj: T):T {
+function readonly<T extends object>(obj: T): T {
     return createReactive(obj, false, true);
 }
 
-function shallowReadonly<T extends object>(obj: T):T {
+function shallowReadonly<T extends object>(obj: T): T {
     return createReactive(obj, true, true);
 }
 
@@ -191,14 +210,22 @@ function createReactive<T extends object>(data: T, isShallow: boolean = false, i
             }
             // @ts-ignore
             const oldVal = target[key];
-            const type: TriggerType = Object.prototype.hasOwnProperty.call(target, key) ? TriggerType.SET : TriggerType.ADD;
+            // check the type of operation on the property
+            // to determine which effect should be triggered
+            const type: TriggerType = Array.isArray(target)
+                ? Number(key) < target.length
+                    ? TriggerType.SET
+                    : TriggerType.ADD
+                : Object.prototype.hasOwnProperty.call(target, key)
+                    ? TriggerType.SET
+                    : TriggerType.ADD;
             const res = Reflect.set(target, key, newVal, receiver);
             // trigger side effect only when receiver is the Proxy of target
             if (target === receiver.__raw) {
                 // The side effect function should not be triggered 
                 // when oldVal is equal to newVal or both oldVal and newVal are equal to NaN. 
                 if (oldVal !== newVal && (oldVal === oldVal || newVal === newVal)) {
-                    trigger(target, key, type);
+                    trigger(target, key, type, newVal);
                 }
             }
             return res;
@@ -233,11 +260,8 @@ function createReactive<T extends object>(data: T, isShallow: boolean = false, i
 }
 
 // example: 
-const obj = readonly({ foo: { bar: 1 } });
-
-effect(() => {
-    console.log(obj.foo.bar);
-});
-
-obj.foo.bar = 3
+const arr = reactive([] as string[]);
+effect(() => console.log(arr[1]));
+arr[0] = 'bar';
+arr[1] = 'tierd';
 
