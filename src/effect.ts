@@ -129,14 +129,14 @@ function trigger(target: object, key: any, type: TriggerType, newVal?: any) {
 
     // Modifying the length of an array will affect the element which index greater than the new length value,
     // so side effects for the element should be trggered.
-    if(Array.isArray(target) && key === 'length') {
-            depsMap.forEach((effects, key) =>{
-                if(key >= newVal){
-                    effects.forEach(effect => {
-                        if(effect !== activeEffect) effectsToRun.add(effect)
-                    })
-                }
-            })
+    if (Array.isArray(target) && key === 'length') {
+        depsMap.forEach((effects, key) => {
+            if (key >= newVal) {
+                effects.forEach(effect => {
+                    if (effect !== activeEffect) effectsToRun.add(effect);
+                });
+            }
+        });
     }
 
     effects && effects.forEach(effect => {
@@ -192,7 +192,9 @@ function createReactive<T extends object>(data: T, isShallow: boolean = false, i
             if (key === '__raw') {
                 return target;
             }
-            if (!isReadonly) track(target, key);
+            // Avoid establishing a reactive relationship between [Symbol.iterator] and side effect functions. 
+            // and do not establish a reactive relationship for objects that are marked as readonly
+            if (!isReadonly && typeof key !== 'symbol') track(target, key);
 
             const res = Reflect.get(target, key, receiver);
             if (isShallow) return res;
@@ -237,7 +239,7 @@ function createReactive<T extends object>(data: T, isShallow: boolean = false, i
         },
         // trap for ... in
         ownKeys(target) {
-            track(target, ITERATE_KEY);
+            track(target, Array.isArray(target) ? 'length' : ITERATE_KEY);
             return Reflect.ownKeys(target);
         },
         // trap delete property
@@ -260,8 +262,14 @@ function createReactive<T extends object>(data: T, isShallow: boolean = false, i
 }
 
 // example: 
-const arr = reactive([] as string[]);
-effect(() => console.log(arr[1]));
-arr[0] = 'bar';
-arr[1] = 'tierd';
+const arr = reactive([1, 2, 3]);
+effect(() => {
+    console.log("---------");
+    for (const n of arr) {
+        console.log((n));
+    }
+});
+
+arr[1] = 99;
+arr[5] = 100
 
