@@ -149,7 +149,15 @@ function trigger(target: object, key: any, type: TriggerType) {
 
 const ITERATE_KEY = Symbol();
 
-function reactive<T extends object>(data: T) {
+function reactive<T extends object>(obj: T): T {
+    return createReactive(obj);
+}
+
+function shallowReactive<T extends object>(obj: T): T {
+    return createReactive(obj, true);
+}
+
+function createReactive<T extends object>(data: T, isShallow: boolean = false) {
     return new Proxy(data, {
         get(target, key, receiver) {
             // When you want to access the __raw property of the receiver, 
@@ -158,7 +166,14 @@ function reactive<T extends object>(data: T) {
                 return target;
             }
             track(target, key);
-            return Reflect.get(target, key, receiver);
+
+            const res = Reflect.get(target, key, receiver);
+            if (isShallow) return res;
+            // for deep reactive
+            if (typeof res === 'object' && res !== null) {
+                return reactive(res);
+            }
+            return res;
         },
         // trap set and add
         set(target, key, newVal, receiver) {
@@ -201,19 +216,13 @@ function reactive<T extends object>(data: T) {
     });
 }
 
-// example: modifying properties on the prototype chain may trigger unnecessary side effects. 
-const obj = {} as { bar?: number, [key: string]: any; };
-const proto = { bar: 1 };
+// example: 
 
-const child: { bar?: number, [key: string]: any; } = reactive(obj);
-const parent = reactive(proto);
-
-Object.setPrototypeOf(child, parent);
+const obj = shallowReactive({ foo: { bar: 1 } });
 
 effect(() => {
-    console.log(child.bar);
+    console.log(obj.foo.bar);
 });
 
-child.bar = 2;
+obj.foo.bar = 3
 
-export { };
