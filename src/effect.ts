@@ -222,9 +222,62 @@ function shallowReadonly<T extends object>(obj: T): T {
     return createReactive(obj, true, true);
 }
 
+const mutableInstrumentations = {
+    add(key: any) {
+        const target = this.__raw;
+        const hadKey = target.has(key);
+        const rawKey = key.__raw || key; // prevent data pollution
+        const res = target.add(rawKey);
+        if (!hadKey) trigger(target, key, TriggerType.ADD);
+        return res;
+    },
+    delete(key: any) {
+        const target = this.__raw;
+        const hadKey = target.has(key);
+        const res = target.delete(key);
+        if (hadKey) {
+            trigger(target, key, TriggerType.DELETE);
+        }
+        return res;
+    },
+    get(key: any) {
+        const target = this.__raw;
+        const had = target.has(key);
+        track(target, key);
+        if (had) {
+            const res = target.get(key);
+            return typeof res === 'object' ? reactive(res) : res;
+        }
+    },
+    set(key: any, value: any) {
+        const target = this.__raw;
+        const had = target.has(key);
+
+        const oldVal = target.get(key);
+        // Determine whether the value is reactive non-primitive data 
+        // to prevent setting the reactive data as the value of the non-reactive data.
+        const rawValue = value.__raw || value;
+        target.set(key, rawValue);
+        if (!had) {
+            trigger(target, key, TriggerType.ADD);
+        } else if (oldVal !== value || (oldVal === oldVal && value === value)) {
+            trigger(target, key, TriggerType.SET);
+        }
+    }
+};
+
 function createReactive<T extends object>(data: T, isShallow: boolean = false, isReadonly = false) {
     return new Proxy(data, {
         get(target, key, receiver) {
+
+            if (target instanceof Set || target instanceof Map) {
+                if (key === '__raw') return target;
+                if (key === 'size') {
+                    track(target, ITERATE_KEY);
+                    return Reflect.get(target, key, target);
+                }
+                return mutableInstrumentations[key];
+            }
             // When you want to access the __raw property of the receiver, 
             // return the object obj that is being proxied by the receiver. 
             if (key === '__raw') {
@@ -304,14 +357,16 @@ function createReactive<T extends object>(data: T, isShallow: boolean = false, i
 }
 
 // example: 
-const arr = reactive([]);
+
+const m = new Map();
+
+const p1 = reactive(m);
+const p2 = reactive(new Map());
+
+p1.set('p2', p2);
 
 effect(() => {
-    arr.push(1);
-    console.log('push 1 done')
+    console.log(p1.get('p2').size);
 });
 
-effect(() => {
-    arr.push(2);
-    console.log('push 2 done')
-});
+p1.get('p2').set('foo', 1);
