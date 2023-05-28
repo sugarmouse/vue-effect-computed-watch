@@ -170,8 +170,12 @@ function trigger(target: object, key: any, type: TriggerType, newVal?: any) {
         if (effect !== activeEffect) effectsToRun.add(effect);
     });
 
-    if (type === TriggerType.ADD || type === TriggerType.DELETE) {
-
+    if (
+        type === TriggerType.ADD
+        || type === TriggerType.DELETE
+        // the set method of Map will affect ITERATE_KEY side effect function
+        || (type === TriggerType.SET && target instanceof Map)
+    ) {
         // Modifying array elements through index may affect the length property. 
         const arrLengthEffects = depsMap.get('length');
         arrLengthEffects && arrLengthEffects.forEach(effect => {
@@ -263,6 +267,16 @@ const mutableInstrumentations = {
         } else if (oldVal !== value || (oldVal === oldVal && value === value)) {
             trigger(target, key, TriggerType.SET);
         }
+    },
+    forEach(callback: (...args: any[]) => any) {
+        // keep every arg transfered to callback is reactive non-primitive or primitive
+        const wrap = (val: any) => typeof val === 'object' ? reactive(val) : val;
+        const target = this.__raw;
+        track(target, ITERATE_KEY);
+        target.forEach((v: any, k: any) => {
+            callback(wrap(v), wrap(k), this);
+        });
+
     }
 };
 
@@ -357,16 +371,14 @@ function createReactive<T extends object>(data: T, isShallow: boolean = false, i
 }
 
 // example: 
-
-const m = new Map();
-
-const p1 = reactive(m);
-const p2 = reactive(new Map());
-
-p1.set('p2', p2);
+const p = reactive(new Map([
+    ['key', 1]
+]));
 
 effect(() => {
-    console.log(p1.get('p2').size);
+    p.forEach(function (value, key) {
+        console.log(value);
+    });
 });
 
-p1.get('p2').set('foo', 1);
+p.set('key', 2);
