@@ -57,6 +57,32 @@ class ReactiveEffect {
 }
 
 /**
+ * self-defined array prototype method
+ * @todo here is some typescript bugs, but ok for javascript
+ */
+const arrayInstrumentations = {};
+['includes', 'indexOf', 'lastIndexOf'].forEach(method => {
+    const originMethod = Array.prototype[method];
+    arrayInstrumentations[method] = function (...args: any[]) {
+        let res = originMethod.apply(this, args);
+        if (res === false || res === -1) {
+            res = originMethod.apply(this.__raw, args);
+        }
+        return res;
+    };
+});
+
+let shouldTrack = true;
+['push', 'pop', 'shift', 'unshift', 'splice'].forEach(method => {
+    const originMethod = Array.prototype[method];
+    arrayInstrumentations[method] = function (...args: any[]) {
+        shouldTrack = false;
+        let res = originMethod.apply(this, args);
+        shouldTrack = true;
+    };
+});
+
+/**
  * The "effect" function creates a new reactive effect and runs it immediately or returns it if lazy
  * option is set.
  * @param {EffectFn} fn - A function that will be executed when the reactive effect is run.
@@ -96,7 +122,7 @@ function cleanupEffect(reactiveEffect: ReactiveEffect) {
  * returned. The function simply exits early and does not execute any further code.
  */
 function track(target: object, key: any) {
-    if (!activeEffect) return;
+    if (!shouldTrack || !activeEffect) return;
 
     let depsMap = bucket.get(target);
 
@@ -196,22 +222,6 @@ function shallowReadonly<T extends object>(obj: T): T {
     return createReactive(obj, true, true);
 }
 
-/**
- * self-defined array prototype method
- * @todo here is some typescript bugs, but ok for javascript
- */
-const arrayInstrumentations = {};
-['includes', 'indexOf', 'lastIndexOf'].forEach(method => {
-    const originMethod = Array.prototype[method];
-    arrayInstrumentations[method] = function (...args: any[]) {
-        let res = originMethod.apply(this, args);
-        if (res === false || res === -1) {
-            res = originMethod.apply(this.__raw, args);
-        }
-        return res;
-    };
-});
-
 function createReactive<T extends object>(data: T, isShallow: boolean = false, isReadonly = false) {
     return new Proxy(data, {
         get(target, key, receiver) {
@@ -294,14 +304,14 @@ function createReactive<T extends object>(data: T, isShallow: boolean = false, i
 }
 
 // example: 
-const obj = {};
-const arr = reactive([obj]);
-console.log(arr.includes(obj));
+const arr = reactive([]);
+
 effect(() => {
-    console.log('--------');
-    // arr[0] 会执行一次 [[GET]], includes 也会遍历元素执行 [[GET]]
-    // 所以对 arr[0] 会创建两个代理对象，最后比较的是两个不同的代理对象，所以这里会出现 false
-    // 所以在 reactive() 函数内部需要做判断
-    console.log(arr.includes(arr[0]));
+    arr.push(1);
+    console.log('push 1 done')
 });
 
+effect(() => {
+    arr.push(2);
+    console.log('push 2 done')
+});
