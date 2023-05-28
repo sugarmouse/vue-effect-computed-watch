@@ -168,8 +168,19 @@ function trigger(target: object, key: any, type: TriggerType, newVal?: any) {
 
 const ITERATE_KEY = Symbol();
 
+/**
+ * mapping original object to proxy object
+ */
+const reactiveMap = new Map();
+
 function reactive<T extends object>(obj: T): T {
-    return createReactive(obj);
+    // data = [{}], avoid creating a new proxy(data[0], {}) everytime
+    // when call arr[0] after reactive(data)
+    const existProxy = reactiveMap.get(obj);
+    if (existProxy) return existProxy;
+    const proxy = createReactive(obj);
+    reactiveMap.set(obj, proxy);
+    return proxy;
 }
 
 function shallowReactive<T extends object>(obj: T): T {
@@ -184,6 +195,21 @@ function shallowReadonly<T extends object>(obj: T): T {
     return createReactive(obj, true, true);
 }
 
+/**
+ * self-defined array prototype method
+ */
+const arrayInstrumentations = {};
+['includes', 'indexOf', 'lastIndexOf'].forEach(method => {
+    const originMethod = Array.prototype[method];
+    arrayInstrumentations[method] = function (...args: any[]) {
+        let res = originMethod.apply(this, args);
+        if (res === false || res === -1) {
+            res = originMethod.apply(this.__raw, args);
+        }
+        return res;
+    };
+});
+
 function createReactive<T extends object>(data: T, isShallow: boolean = false, isReadonly = false) {
     return new Proxy(data, {
         get(target, key, receiver) {
@@ -191,6 +217,10 @@ function createReactive<T extends object>(data: T, isShallow: boolean = false, i
             // return the object obj that is being proxied by the receiver. 
             if (key === '__raw') {
                 return target;
+            }
+            // trap methods on the prototype of an array
+            if (Array.isArray(target) && arrayInstrumentations.hasOwnProperty(key)) {
+                return Reflect.get(arrayInstrumentations, key, receiver);
             }
             // Avoid establishing a reactive relationship between [Symbol.iterator] and side effect functions. 
             // and do not establish a reactive relationship for objects that are marked as readonly
@@ -262,14 +292,14 @@ function createReactive<T extends object>(data: T, isShallow: boolean = false, i
 }
 
 // example: 
-const arr = reactive([1, 2, 3]);
+const obj = {};
+const arr = reactive([obj]);
+console.log(arr.includes(obj));
 effect(() => {
-    console.log("---------");
-    for (const n of arr) {
-        console.log((n));
-    }
+    console.log('--------');
+    // arr[0] 会执行一次 [[GET]], includes 也会遍历元素执行 [[GET]]
+    // 所以对 arr[0] 会创建两个代理对象，最后比较的是两个不同的代理对象，所以这里会出现 false
+    // 所以在 reactive() 函数内部需要做判断
+    console.log(arr.includes(arr[0]));
 });
-
-arr[1] = 99;
-arr[5] = 100
 
