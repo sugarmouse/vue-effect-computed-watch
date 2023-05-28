@@ -49,6 +49,7 @@ class ReactiveEffect {
             return this._fn();
         } catch (e) {
             console.error('effect funtion execute failed');
+            console.error(e);
         } finally {
             effectStack.pop();
             activeEffect = effectStack[effectStack.length - 1];
@@ -171,6 +172,16 @@ function trigger(target: object, key: any, type: TriggerType, newVal?: any) {
     });
 
     if (
+        (type === TriggerType.ADD || type === TriggerType.DELETE)
+        && target instanceof Map
+    ) {
+        const iterateEffects = depsMap.get(MAP_KEY_ITERATE_KEY);
+        iterateEffects && iterateEffects.forEach(effect => {
+            if (effect !== activeEffect) effectsToRun.add(effect);
+        });
+    }
+
+    if (
         type === TriggerType.ADD
         || type === TriggerType.DELETE
         // the set method of Map will affect ITERATE_KEY side effect function
@@ -226,6 +237,71 @@ function shallowReadonly<T extends object>(obj: T): T {
     return createReactive(obj, true, true);
 }
 
+const MAP_KEY_ITERATE_KEY = Symbol();
+function iterationMethod() {
+    const target = this.__raw;
+    const itr = target[Symbol.iterator]();
+    const wrap = (val: any) => {
+        return typeof val === 'object' && val !== null ? reactive(val) : val;
+    };
+
+    track(target, ITERATE_KEY);
+    return {
+        next() {
+            const { value, done } = itr.next();
+            return {
+                value: value ? [wrap(value[0]), wrap(value[1])] : value,
+                done
+            };
+        },
+        [Symbol.iterator]() {
+            return this;
+        }
+    };
+}
+function valuesIterationMethod() {
+    const target = this.__raw;
+    const iter = target.values();
+
+    const warp = (val: any) => typeof val === 'object' ? reactive(val) : val;
+
+    track(target, ITERATE_KEY);
+
+    return {
+        next() {
+            const { value, done } = iter.next();
+            return {
+                value: warp(value),
+                done
+            };
+        },
+        [Symbol.iterator]() {
+            return this;
+        }
+    };
+}
+function keysIterationMethod() {
+    const target = this.__raw;
+    const iter = target.keys();
+
+    const warp = (val: any) => typeof val === 'object' ? reactive(val) : val;
+
+    track(target, MAP_KEY_ITERATE_KEY);
+
+    return {
+        next() {
+            const { value, done } = iter.next();
+            return {
+                value: warp(value),
+                done
+            };
+        },
+        [Symbol.iterator]() {
+            return this;
+        }
+    };
+
+}
 const mutableInstrumentations = {
     add(key: any) {
         const target = this.__raw;
@@ -276,8 +352,11 @@ const mutableInstrumentations = {
         target.forEach((v: any, k: any) => {
             callback(wrap(v), wrap(k), this);
         });
-
-    }
+    },
+    entries: iterationMethod,
+    keys: keysIterationMethod,
+    values: valuesIterationMethod,
+    [Symbol.iterator]: iterationMethod,
 };
 
 function createReactive<T extends object>(data: T, isShallow: boolean = false, isReadonly = false) {
@@ -372,13 +451,15 @@ function createReactive<T extends object>(data: T, isShallow: boolean = false, i
 
 // example: 
 const p = reactive(new Map([
-    ['key', 1]
+    ['key1', 'value1'],
+    ['key2', 'value2']
 ]));
 
 effect(() => {
-    p.forEach(function (value, key) {
-        console.log(value);
-    });
+    console.log('-----------');
+    for (const key of p.keys()) {
+        console.log(key);
+    }
 });
 
-p.set('key', 2);
+p.set('key2', 'value3');
