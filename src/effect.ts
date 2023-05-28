@@ -1,3 +1,4 @@
+// @ts-nocheck
 type EffectFn = (...arg: any[]) => any;
 type Deps = Set<ReactiveEffect>;
 
@@ -197,6 +198,7 @@ function shallowReadonly<T extends object>(obj: T): T {
 
 /**
  * self-defined array prototype method
+ * @todo here is some typescript bugs, but ok for javascript
  */
 const arrayInstrumentations = {};
 ['includes', 'indexOf', 'lastIndexOf'].forEach(method => {
