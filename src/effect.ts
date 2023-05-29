@@ -449,7 +449,7 @@ function createReactive<T extends object>(data: T, isShallow: boolean = false, i
 }
 
 /**
- * ref  is a: primitive variable  ---> { get value() { return a }  }
+ * ref  is a: primitive variable  ---> { get value() { return a }, __v_isRef: true  }
  */
 type Primitive = number | string | boolean | symbol | null | undefined | bigint;
 function ref(val: Primitive) {
@@ -486,16 +486,34 @@ function toRefs(obj: object) {
     return ret;
 }
 
+// object returned by vue setup function will pass to this function
+// to make the element cat accessed by proprty name instead of obj.property.value
+function proxyRefs(target: object) {
+    return new Proxy(target, {
+        get(target, key, receiver) {
+            const value = Reflect.get(target, key, receiver);
+            return value.__v_isRef ? value.value : value;
+        },
+        set(target, key, newVal, receiver) {
+            const val = target[key];
+            if (val.__v_isRef) {
+                val.value = newVal;
+                return true;
+            }
+            return Reflect.set(target, key, newVal, receiver);
+        }
+    });
+}
+
 
 // example: 
 const obj = reactive({ foo: 1, bar: 2 });
 
-const newObj = { ...toRefs(obj) };
-
-const refFoo = toRef(obj, 'foo');
+const newObj = proxyRefs({ ...toRefs(obj) });
 
 effect(() => {
-    console.log(newObj.foo.value);
+    console.log(newObj.foo);
 });
 
-obj.foo = 2
+newObj.foo = 2;
+console.log(newObj.foo);
