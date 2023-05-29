@@ -214,7 +214,6 @@ const ITERATE_KEY = Symbol();
  * mapping original object to proxy object
  */
 const reactiveMap = new Map();
-
 function reactive<T extends object>(obj: T): T {
     // data = [{}], avoid creating a new proxy(data[0], {}) everytime
     // when call arr[0] after reactive(data)
@@ -449,17 +448,54 @@ function createReactive<T extends object>(data: T, isShallow: boolean = false, i
     });
 }
 
+/**
+ * ref  is a: primitive variable  ---> { get value() { return a }  }
+ */
+type Primitive = number | string | boolean | symbol | null | undefined | bigint;
+function ref(val: Primitive) {
+    const wrapper = {
+        value: val
+    };
+    Object.defineProperty(wrapper, '__v_isRef', {
+        value: true,
+        enumerable: false,
+    });
+    return reactive(wrap);
+}
+
+function toRef(obj: object, key: any) {
+    const wrapper = {
+        get value() {
+            return obj[key];
+        },
+        set value(val) {
+            obj[key] = val;
+        }
+    };
+    Object.defineProperty(wrapper, '__v_isRef', {
+        value: true,
+    });
+    return wrapper;
+}
+
+function toRefs(obj: object) {
+    const ret = {};
+    for (const key in obj) {
+        ret[key] = toRef(obj, key);
+    }
+    return ret;
+}
+
+
 // example: 
-const p = reactive(new Map([
-    ['key1', 'value1'],
-    ['key2', 'value2']
-]));
+const obj = reactive({ foo: 1, bar: 2 });
+
+const newObj = { ...toRefs(obj) };
+
+const refFoo = toRef(obj, 'foo');
 
 effect(() => {
-    console.log('-----------');
-    for (const key of p.keys()) {
-        console.log(key);
-    }
+    console.log(newObj.foo.value);
 });
 
-p.set('key2', 'value3');
+obj.foo = 2
