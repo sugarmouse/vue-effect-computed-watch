@@ -5,13 +5,13 @@ type VNode = object & {
     children: string | VNode;
 } | null;
 
-type CreateRendererArgs = {
+type CreateRendererOptions = {
     createElement: (tag: string) => any,
     setElementText: (el: HTMLNode, text: string) => any,
     insert: (el: HTMLNode, parent: HTMLNode, anchor?: HTMLNode | null) => any;
 };
 
-function createRenderer(options: CreateRendererArgs) {
+function createRenderer(options: CreateRendererOptions) {
 
     const { createElement, insert, setElementText } = options;
 
@@ -59,15 +59,15 @@ function createRenderer(options: CreateRendererArgs) {
 const renderer = createRenderer({
     createElement(tag: string) {
         console.log(`创建元素 ${tag}`);
-
+        return {tag}
     },
     setElementText(el, text) {
         console.log(`设置 ${JSON.stringify(el)} 的文本内容 ${text}`);
-        // el.textContent = text;
+        el.textContent = text;
     },
     insert(el, parent, anchor = null) {
         console.log(`将 ${JSON.stringify(el)} 添加到 ${JSON.stringify(parent)} 下`);
-        // parent.replaceChildren(el);
+        parent.children = el
     }
 });
 
