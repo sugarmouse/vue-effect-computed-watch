@@ -61,13 +61,26 @@ function createRenderer(options: CreateRendererOptions) {
     }
 
     function patch(oldVnode: VNode, newVnode: VNode, container: HTMLNode) {
-        if (!oldVnode) {
-            // oldNode = null ,just mount the newNode directly
-            mountElement(newVnode, container);
+        if (oldVnode && oldVnode.type !== newVnode?.type) {
+            unmount(oldVnode);
+            oldVnode = null;
+        }
+
+        const { type } = newVnode;
+
+        if (typeof type === 'string') {
+            // legal HTML tag name
+            if (!oldVnode) {
+                // oldNode = null ,just mount the newNode directly
+                mountElement(newVnode, container);
+            } else {
+                // patchElment(oldVnode, newVnode)
+            }
+        } else if (typeof type === 'object') {
+            // newVnode is a vue component
         } else {
             /**
-             * @todo should diff and mount 
-             * unimplement for now
+             * other types of VNode
              */
         }
     }
