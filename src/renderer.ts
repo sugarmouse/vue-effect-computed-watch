@@ -4,6 +4,7 @@ type VNode = object & {
     type: string,
     props: { [key: string]: any; };
     children: string | VNode[];
+    el: HTMLNode;
 } | null;
 
 type CreateRendererOptions = {
@@ -13,18 +14,26 @@ type CreateRendererOptions = {
     patchProps: (el: HTMLNode, key: string, prevValue: any, nextValue: any) => void;
 };
 
+function unmount(vnode: VNode) {
+    const parent = vnode?.el.parentNode;
+    if (parent) {
+        parent.removeChild(vnode.el);
+    }
+}
+
 function createRenderer(options: CreateRendererOptions) {
 
     const { createElement, insert, setElementText, patchProps } = options;
 
-    function render(vnode: VNode, container: any) {
+    function render(vnode: VNode, container: HTMLNode) {
         if (!container) return;
         if (vnode) {
             patch(container.__vnode, vnode, container);
         } else {
             // vnode === null or undefined
             if (container.__vnode) {
-                container.innerHTML = '';
+                // unmount
+                unmount(container.__vnode);
             }
         }
         container.__vnode = vnode;
@@ -32,7 +41,7 @@ function createRenderer(options: CreateRendererOptions) {
 
     function mountElement(vnode: VNode, container: HTMLNode) {
         if (!vnode) return;
-        const el = createElement(vnode.type);
+        const el = vnode.el = createElement(vnode.type);
 
         if (typeof vnode.children === 'string') {
             setElementText(el, vnode.children);
@@ -95,8 +104,8 @@ const renderer = createRenderer({
         parent.children = el;
     },
     pathcProps(el: HTMLNode, key: string, prevValue: any, nextValue: any) {
-        if(key === 'class') {
-            el.className = nextValue || ''
+        if (key === 'class') {
+            el.className = nextValue || '';
         } else if (shouldSetAsProps(el, key, nextValue)) {
             const type = typeof el[key];
             if (type === 'boolean' && nextValue === '') {
