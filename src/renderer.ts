@@ -117,7 +117,35 @@ const renderer = createRenderer({
         parent.children = el;
     },
     pathcProps(el: HTMLNode, key: string, prevValue: any, nextValue: any) {
-        if (key === 'class') {
+        // on 开头的是事件
+        if (/^on/.test(key)) {
+            // invokers 维护的是ODM元素的事件函数
+            const invokers = el.__val || (el.__val = {});
+            // invoker 是对事件函数的一层包裹，事件函数挂在 value 属性上
+            // 每次更新事件函数只要更新 value 的值就行
+            let invoker = invokers[key];
+            const name = key.slice(2).toLocaleLowerCase();
+            if (nextValue) {
+                if (!invoker) {
+                    invoker = el.__vei[key] = (e) => {
+                        if (Array.isArray(invoker.value)) {
+                            invoker.value.forEach(fn => fn(e))
+                        } else {
+                            invoker.value(e)
+                        }
+                    };
+                    invoker.value = nextValue;
+                    el.addEventListener(name, invoker);
+                } else {
+                    // 事件更新的逻辑就少了 removeEventListener
+                    // 提高事件更新的性能
+                    invoker.value = nextValue;
+                }
+            } else if (invoker) {
+                el.removeEventListener(name, invoker);
+            }
+        }
+        else if (key === 'class') {
             el.className = nextValue || '';
         } else if (shouldSetAsProps(el, key, nextValue)) {
             const type = typeof el[key];
