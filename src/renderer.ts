@@ -116,11 +116,11 @@ const renderer = createRenderer({
         console.log(`将 ${JSON.stringify(el)} 添加到 ${JSON.stringify(parent)} 下`);
         parent.children = el;
     },
-    pathcProps(el: HTMLNode, key: string, prevValue: any, nextValue: any) {
+    patchProps(el: HTMLNode, key: string, prevValue: any, nextValue: any) {
         // on 开头的是事件
         if (/^on/.test(key)) {
             // invokers 维护的是ODM元素的事件函数
-            const invokers = el.__val || (el.__val = {});
+            const invokers = el.__vei || (el.__vei = {});
             // invoker 是对事件函数的一层包裹，事件函数挂在 value 属性上
             // 每次更新事件函数只要更新 value 的值就行
             let invoker = invokers[key];
@@ -128,13 +128,17 @@ const renderer = createRenderer({
             if (nextValue) {
                 if (!invoker) {
                     invoker = el.__vei[key] = (e) => {
+                        if (e.timaStamp < invoker.attached) return;
                         if (Array.isArray(invoker.value)) {
-                            invoker.value.forEach(fn => fn(e))
+                            invoker.value.forEach(fn => fn(e));
                         } else {
-                            invoker.value(e)
+                            invoker.value(e);
                         }
                     };
                     invoker.value = nextValue;
+
+                    // 给事件添加时间戳，控制冒泡过程中可能产生的不必要的时间触发
+                    invoker.attached = performance.now();
                     el.addEventListener(name, invoker);
                 } else {
                     // 事件更新的逻辑就少了 removeEventListener
@@ -160,10 +164,30 @@ const renderer = createRenderer({
     }
 });
 
-const container = { type: 'root' };
-const vnode = { type: 'h1', children: 'hello' };
+// example
+// ref and effect from @vue/reactivity
+const bol = ref(false);
 
-renderer.render(vnode, container);
+effect(() => {
+    const vnode = {
+        type: 'div',
+        props: bol.value ? {
+            onClick: () => {
+                alert('parent element clicked');
+            }
+        } : {},
+        children: [
+            {
+                type: 'p',
+                props: {
+                    onClick: () => {
+                        bol.value = true;
+                    }
+                },
+                children: 'text'
+            }
+        ]
+    };
 
-
-export { };
+    renderer.render(vnode, document.querySelector('#app'));
+});
