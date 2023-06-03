@@ -3,7 +3,7 @@ type HTMLNode = HTMLElement & { __vnode: VNode; };
 type VNode = object & {
     type: string,
     props: { [key: string]: any; };
-    children: string | VNode[];
+    children: string | VNode[] | null;
     el: HTMLNode;
 } | null;
 
@@ -74,7 +74,7 @@ function createRenderer(options: CreateRendererOptions) {
                 // oldNode = null ,just mount the newNode directly
                 mountElement(newVnode, container);
             } else {
-                // patchElment(oldVnode, newVnode)
+                patchElment(oldVnode, newVnode);
             }
         } else if (typeof type === 'object') {
             // newVnode is a vue component
@@ -82,6 +82,63 @@ function createRenderer(options: CreateRendererOptions) {
             /**
              * other types of VNode
              */
+        }
+    }
+
+    function patchELement(n1: VNode, n2: VNode) {
+        const el = n2?.el = n1?.el;
+        const oldProps = n1?.props;
+        const newProps = n2?.props;
+
+        // update props
+        for (const key in newProps) {
+            if (newProps[key] !== oldProps[key]) {
+                patchProps(el, key, oldProps[key], newProps[key]);
+            }
+        }
+        for (const key in oldProps) {
+            if (!(key in newProps)) {
+                patchProps(el, key, oldProps[key], null);
+            }
+        }
+
+        // update children
+        patchChildren(n1, n2, el);
+    }
+
+    function patchChildren(n1: VNode, n2: VNode, container: HTMLNode) {
+        if (!n1 || !n2) return;
+        // n2 is the new Node, and n1 is the older one
+        if (typeof n2.children === 'string') {
+
+            // 就子节点的类型只有三种肯能： 没有子节点，文本字节点，一组子节点
+            // 没有字节点或者本身就是文本自己点的话不需要额外做什么
+            if (Array.isArray(n1.children)) {
+                n1.children.forEach(child => unmount(child));
+            }
+            // 将新的文本节点内容设置给容器元素
+            setElementText(container, n2.children);
+        } else if (Array.isArray(n2.children)) {
+            // 处理新的 n2.children 是一组节点的情况
+            if (Array.isArray(n1.children)) {
+                // 此时新的子节点和旧的子节点的 children 都是一个 VNode[]
+                // 为了减少 DOM 操作，提高性能，这里不能直接全部卸载旧的子节点而逐个挂载新的
+                // 需要对节点 Diff
+                n1.children.forEach(child => unmount(child));
+                n2.children.forEach(child => patch(null, child, container));
+            } else {
+                // 旧的子节点是是 null 或者 string
+                // 直接逐个挂载各个新的字节点
+                setElementText(container, '');
+                n2.children.forEach(child => patch(null, c, container));
+            }
+        } else {
+            // 新的子节点不存在 n2.children === null
+            if (Array.isArray(n1.children)) {
+                n1.children.forEach(child => unmount(child));
+            } else if (typeof n1.children === 'string') {
+                setElementText(container, '');
+            }
         }
     }
 
