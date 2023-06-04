@@ -92,7 +92,7 @@ function createRenderer(options: CreateRendererOptions) {
                 // oldNode = null ,just mount the newNode directly
                 mountElement(newVnode, container);
             } else {
-                patchElment(oldVnode, newVnode);
+                patchElement(oldVnode, newVnode);
             }
         } else if (type === TextNode) {
             // vnode 是文本节点
@@ -118,7 +118,7 @@ function createRenderer(options: CreateRendererOptions) {
         }
     }
 
-    function patchELement(n1: VNode, n2: VNode) {
+    function patchElement(n1: VNode, n2: VNode) {
         const el = n2?.el = n1?.el;
         const oldProps = n1?.props;
         const newProps = n2?.props;
