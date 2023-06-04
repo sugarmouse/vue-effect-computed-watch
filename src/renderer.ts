@@ -17,13 +17,9 @@ type CreateRendererOptions = {
 };
 
 const TextNode = Symbol();
+const Fragment = Symbol();
 
-function unmount(vnode: VNode) {
-    const parent = vnode?.el.parentNode;
-    if (parent) {
-        parent.removeChild(vnode.el);
-    }
-}
+
 
 function createRenderer(options: CreateRendererOptions) {
 
@@ -48,6 +44,17 @@ function createRenderer(options: CreateRendererOptions) {
             }
         }
         container.__vnode = vnode;
+    }
+
+    function unmount(vnode: VNode) {
+        if (vnode?.type === Fragment) {
+            vnode.children.forEach(child => unmount(child));
+            return;
+        }
+        const parent = vnode?.el.parentNode;
+        if (parent) {
+            parent.removeChild(vnode.el);
+        }
     }
 
     function mountElement(vnode: VNode, container: HTMLNode) {
@@ -97,6 +104,12 @@ function createRenderer(options: CreateRendererOptions) {
                 if (newVnode?.children !== oldVnode.children) {
                     setText(el, newVnode?.children);
                 }
+            }
+        } else if (type === Fragment) {
+            if (!oldVnode) {
+                newVnode?.children.forEach(child => patch(null, child, container));
+            } else {
+                patchChildren(oldVnode, newVnode, container);
             }
         } else if (typeof type === 'object') {
 
