@@ -12,7 +12,11 @@ type CreateRendererOptions = {
     setElementText: (el: HTMLNode, text: string) => any,
     insert: (el: HTMLNode, parent: HTMLNode, anchor?: HTMLNode | null) => any;
     patchProps: (el: HTMLNode, key: string, prevValue: any, nextValue: any) => void;
+    createText: (text: string) => Text,
+    setText: (el: HTMLNode, text: string) => void;
 };
+
+const TextNode = Symbol();
 
 function unmount(vnode: VNode) {
     const parent = vnode?.el.parentNode;
@@ -23,7 +27,14 @@ function unmount(vnode: VNode) {
 
 function createRenderer(options: CreateRendererOptions) {
 
-    const { createElement, insert, setElementText, patchProps } = options;
+    const {
+        createElement,
+        setElementText,
+        patchProps,
+        insert,
+        setText,
+        createText
+    } = options;
 
     function render(vnode: VNode, container: HTMLNode) {
         if (!container) return;
@@ -76,12 +87,21 @@ function createRenderer(options: CreateRendererOptions) {
             } else {
                 patchElment(oldVnode, newVnode);
             }
+        } else if (type === TextNode) {
+            // vnode 是文本节点
+            if (!oldVnode) {
+                const el = newVnode.el = createText(newVnode?.children);
+                insert(el, container);
+            } else {
+                const el = newVnode.el = oldVnode.el;
+                if (newVnode?.children !== oldVnode.children) {
+                    setText(el, newVnode?.children);
+                }
+            }
         } else if (typeof type === 'object') {
-            // newVnode is a vue component
+
         } else {
-            /**
-             * other types of VNode
-             */
+
         }
     }
 
@@ -218,6 +238,12 @@ const renderer = createRenderer({
         } else {
             el.setAttribute(key, nextValue);
         }
+    },
+    createText(text: string) {
+        return document.createTextNode(text);
+    },
+    setText(el: HTMLNode, text: string) {
+        el.nodeValue = text;
     }
 });
 
