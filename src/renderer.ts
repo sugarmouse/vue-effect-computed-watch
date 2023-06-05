@@ -153,17 +153,24 @@ function createRenderer(options: CreateRendererOptions) {
             setElementText(container, n2.children);
         } else if (Array.isArray(n2.children)) {
             // 处理新的 n2.children 是一组节点的情况
-            if (Array.isArray(n1.children)) {
-                // 此时新的子节点和旧的子节点的 children 都是一个 VNode[]
-                // 为了减少 DOM 操作，提高性能，这里不能直接全部卸载旧的子节点而逐个挂载新的
-                // 需要对节点 Diff
-                n1.children.forEach(child => unmount(child));
-                n2.children.forEach(child => patch(null, child, container));
-            } else {
-                // 旧的子节点是是 null 或者 string
-                // 直接逐个挂载各个新的字节点
-                setElementText(container, '');
-                n2.children.forEach(child => patch(null, c, container));
+            const oldChildren = n1.children;
+            const newChildren = n2.children;
+
+            const oldLen = oldChildren?.length;
+            const newLen = newChildren.length;
+
+            const commonLength = Math.min(oldLen, newLen);
+
+            if (newLen > oldLen) {
+                // 新的子节点数更多，直接交给 patch
+                for (let i = 0; i < commonLength; i++) {
+                    patch(oldChildren[i], newChildren[i], container);
+                }
+            } else if(oldLen > newLen) {
+                // 旧的子节点数更多，需要卸载多余的部分
+                for(let i = commonLength; i < oldLen; i++) {
+                    unmount(oldChildren[i])
+                }
             }
         } else {
             // 新的子节点不存在 n2.children === null
