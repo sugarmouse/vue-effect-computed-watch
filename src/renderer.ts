@@ -156,20 +156,14 @@ function createRenderer(options: CreateRendererOptions) {
             const oldChildren = n1.children;
             const newChildren = n2.children;
 
-            const oldLen = oldChildren?.length;
-            const newLen = newChildren.length;
-
-            const commonLength = Math.min(oldLen, newLen);
-
-            if (newLen > oldLen) {
-                // 新的子节点数更多，直接交给 patch
-                for (let i = 0; i < commonLength; i++) {
-                    patch(oldChildren[i], newChildren[i], container);
-                }
-            } else if(oldLen > newLen) {
-                // 旧的子节点数更多，需要卸载多余的部分
-                for(let i = commonLength; i < oldLen; i++) {
-                    unmount(oldChildren[i])
+            for (let i = 0; i < newChildren.length; i++) {
+                const newVNode = newChildren[i];
+                for (let j = 0; j < oldChildren?.length; j++) {
+                    const oldVNode = oldChildren[i];
+                    if (newVNode.key === oldVNode.key) {
+                        patch(oldVNode, newVNode, container);
+                        break;
+                    }
                 }
             }
         } else {
@@ -268,29 +262,3 @@ const renderer = createRenderer({
 });
 
 // example
-// ref and effect from @vue/reactivity
-const bol = ref(false);
-
-effect(() => {
-    const vnode = {
-        type: 'div',
-        props: bol.value ? {
-            onClick: () => {
-                alert('parent element clicked');
-            }
-        } : {},
-        children: [
-            {
-                type: 'p',
-                props: {
-                    onClick: () => {
-                        bol.value = true;
-                    }
-                },
-                children: 'text'
-            }
-        ]
-    };
-
-    renderer.render(vnode, document.querySelector('#app'));
-});
