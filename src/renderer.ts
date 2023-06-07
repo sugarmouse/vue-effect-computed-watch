@@ -156,12 +156,26 @@ function createRenderer(options: CreateRendererOptions) {
             const oldChildren = n1.children;
             const newChildren = n2.children;
 
+            // lastIndex 记录寻找过程中遇到的最大索引值
+            let lastIndex = 0;
             for (let i = 0; i < newChildren.length; i++) {
                 const newVNode = newChildren[i];
-                for (let j = 0; j < oldChildren?.length; j++) {
+                let j = 0;
+                for (j; j < oldChildren?.length; j++) {
                     const oldVNode = oldChildren[i];
                     if (newVNode.key === oldVNode.key) {
                         patch(oldVNode, newVNode, container);
+                        if (j < lastIndex) {
+                            // 当前节点对应的真实 DOM 需要移动
+                            const prevVNode = newChildre[i - 1];
+                            if (prevVNode) {
+                                const anchor = prevVNode.el.nextSibling;
+                                insert(newVNode?.el, container, anchor);
+                            }
+                        } else {
+                            // update lastIndex
+                            lastIndex = j;
+                        }
                         break;
                     }
                 }
@@ -204,8 +218,7 @@ const renderer = createRenderer({
         el.textContent = text;
     },
     insert(el, parent, anchor = null) {
-        console.log(`将 ${JSON.stringify(el)} 添加到 ${JSON.stringify(parent)} 下`);
-        parent.children = el;
+        parent.insertBefore(el, anchor);
     },
     patchProps(el: HTMLNode, key: string, prevValue: any, nextValue: any) {
         // on 开头的是事件
