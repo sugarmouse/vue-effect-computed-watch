@@ -57,7 +57,7 @@ function createRenderer(options: CreateRendererOptions) {
         }
     }
 
-    function mountElement(vnode: VNode, container: HTMLNode) {
+    function mountElement(vnode: VNode, container: HTMLNode, anchor: HTMLNode) {
         if (!vnode) return;
         const el = vnode.el = createElement(vnode.type);
 
@@ -75,10 +75,10 @@ function createRenderer(options: CreateRendererOptions) {
             }
         }
 
-        insert(el, container);
+        insert(el, container, anchor);
     }
 
-    function patch(oldVnode: VNode, newVnode: VNode, container: HTMLNode) {
+    function patch(oldVnode: VNode, newVnode: VNode, container: HTMLNode, anchor: HTMLNode) {
         if (oldVnode && oldVnode.type !== newVnode?.type) {
             unmount(oldVnode);
             oldVnode = null;
@@ -90,7 +90,7 @@ function createRenderer(options: CreateRendererOptions) {
             // legal HTML tag name
             if (!oldVnode) {
                 // oldNode = null ,just mount the newNode directly
-                mountElement(newVnode, container);
+                mountElement(newVnode, container, anchor);
             } else {
                 patchElement(oldVnode, newVnode);
             }
@@ -161,9 +161,12 @@ function createRenderer(options: CreateRendererOptions) {
             for (let i = 0; i < newChildren.length; i++) {
                 const newVNode = newChildren[i];
                 let j = 0;
+                // find 变量用来记录当前节点 newChildren[i] 是否找到可复用的节点
+                let find = false;
                 for (j; j < oldChildren?.length; j++) {
                     const oldVNode = oldChildren[i];
                     if (newVNode.key === oldVNode.key) {
+                        find = true;
                         patch(oldVNode, newVNode, container);
                         if (j < lastIndex) {
                             // 当前节点对应的真实 DOM 需要移动
@@ -178,6 +181,18 @@ function createRenderer(options: CreateRendererOptions) {
                         }
                         break;
                     }
+                }
+                // 遍历完旧的节点还没有找到可以复用的 DOM
+                // 所以这里需要创建新的节点
+                if (!find) {
+                    const prevVNode = newChildren[i - 1];
+                    let anchor = null;
+                    if (prevVNode) {
+                        anchor = prevVNode.el.nextSibling;
+                    } else {
+                        anchor = container.firstChild;
+                    }
+                    patch(null, newVNode, container, anchor);
                 }
             }
         } else {
