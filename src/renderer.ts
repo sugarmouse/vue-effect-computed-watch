@@ -195,6 +195,13 @@ function createRenderer(options: CreateRendererOptions) {
                     patch(null, newVNode, container, anchor);
                 }
             }
+
+            // 新的节点子节点全部复用，添加完成之后，卸载旧的子节点中多余的DOM节点
+            for (let i = 0; i < oldChildren?.length; i++) {
+                const oldVNode = oldChildren[i];
+                const has = newChildren.find(newVNode => newVNode.key === oldVNode.key);
+                if (!has) unmount(oldVNode);
+            }
         } else {
             // 新的子节点不存在 n2.children === null
             if (Array.isArray(n1.children)) {
