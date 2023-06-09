@@ -152,56 +152,8 @@ function createRenderer(options: CreateRendererOptions) {
             // 将新的文本节点内容设置给容器元素
             setElementText(container, n2.children);
         } else if (Array.isArray(n2.children)) {
-            // 处理新的 n2.children 是一组节点的情况
-            const oldChildren = n1.children;
-            const newChildren = n2.children;
-
-            // lastIndex 记录寻找过程中遇到的最大索引值
-            let lastIndex = 0;
-            for (let i = 0; i < newChildren.length; i++) {
-                const newVNode = newChildren[i];
-                let j = 0;
-                // find 变量用来记录当前节点 newChildren[i] 是否找到可复用的节点
-                let find = false;
-                for (j; j < oldChildren?.length; j++) {
-                    const oldVNode = oldChildren[i];
-                    if (newVNode.key === oldVNode.key) {
-                        find = true;
-                        patch(oldVNode, newVNode, container);
-                        if (j < lastIndex) {
-                            // 当前节点对应的真实 DOM 需要移动
-                            const prevVNode = newChildre[i - 1];
-                            if (prevVNode) {
-                                const anchor = prevVNode.el.nextSibling;
-                                insert(newVNode?.el, container, anchor);
-                            }
-                        } else {
-                            // update lastIndex
-                            lastIndex = j;
-                        }
-                        break;
-                    }
-                }
-                // 遍历完旧的节点还没有找到可以复用的 DOM
-                // 所以这里需要创建新的节点
-                if (!find) {
-                    const prevVNode = newChildren[i - 1];
-                    let anchor = null;
-                    if (prevVNode) {
-                        anchor = prevVNode.el.nextSibling;
-                    } else {
-                        anchor = container.firstChild;
-                    }
-                    patch(null, newVNode, container, anchor);
-                }
-            }
-
-            // 新的节点子节点全部复用，添加完成之后，卸载旧的子节点中多余的DOM节点
-            for (let i = 0; i < oldChildren?.length; i++) {
-                const oldVNode = oldChildren[i];
-                const has = newChildren.find(newVNode => newVNode.key === oldVNode.key);
-                if (!has) unmount(oldVNode);
-            }
+            // DOM diff
+            patchKeyedChildren(n1, n2, container);
         } else {
             // 新的子节点不存在 n2.children === null
             if (Array.isArray(n1.children)) {
@@ -210,6 +162,85 @@ function createRenderer(options: CreateRendererOptions) {
                 setElementText(container, '');
             }
         }
+    }
+
+    function patchKeyedChildren(n1: VNode, n2: VNode, container: HTMLNode) {
+        const oldChildren = n1?.children;
+        const newChildren = n2?.children;
+
+        let oldStartIdx = 0,
+            oldEndIdx = oldChildren?.length - 1,
+            newStartIdx = 0,
+            newEndIdx = newChildren.length - 1;
+
+        let oldStartVNode = oldChildren[oldStartIdx],
+            oldEndVNode = oldChildren[oldEndIdx],
+            newStartVNode = newChildren[newStartIdx],
+            newEndVNode = newChildren[newEndIdx];
+
+        while (oldStartIdx <= oldEndIdx && newStartIdx <= newEndIdx) {
+            // 每一轮进行四次比较 (new->old)：头对头，尾对尾，尾对头，头对尾
+            // 找到可复用的 DOM 则直接通过移动操作复用节点
+            if (!oldStartVNode) {
+                oldStartVNode = oldChildren[++oldStartIdx];
+            } else if (!oldEndVNode) {
+                oldEndVNode = oldChildren[--oldEndIdx];
+            } else if (oldStartVNode.key === newStartVNode.key) {
+                // new->old 头尾配对
+                patch(oldStartVNode, newStartVNode, container);
+                oldStartVNode = oldChildren[++oldStartIdx];
+                newStartVNode = newChildren[++newStartIdx];
+            } else if (oldEndVNode.key === newEndVNode.key) {
+                // 尾尾配对，直接 patch 两个节点就可以，不需要移动真实 DOM
+                patch(oldEndVNode, newEndVNode, container);
+                oldEndVNode = oldChildren[--oldEndIdx];
+                newEndVNode = newChildren[--newEndIdx];
+            } else if (oldStartVNode.key === newEndVNode.key) {
+                // new->old 尾头配对
+                patch(oldStartVNode, newEndVNode, container);
+                insert(oldStartVNode?.el, container, oldEndVNode.el.nextSibling);
+                oldStartVNode = oldChildren[++oldStartIdx];
+                newEndVNode = newChildren[--newEndIdx];
+            } else if (oldEndVNode.key === newStartVNode.key) {
+                // new->old 头尾相配
+                patch(oldEndVNode, newStartVNode, container);
+                // 将 旧尾对应的真实 DOM 移到 旧头对应的真实 DOM 之前
+                insert(oldEndVNode?.el, container, oldStartVNode.el);
+                // 更新指针
+                oldEndVNode = oldChildren[--oldEndIdx];
+                newStartVNode = newChildren[++newStartIdx];
+            } else {
+                // 双端 diff 四次比较都没有命中
+                const idxInOld = oldChildren.findIndex(
+                    node => node.key === newStartVNode.key
+                );
+                if (idxInOld > 0) {
+                    const vnodeToMove = oldChildren[idxInOld];
+                    patch(vnodeToMove, newStartVNode, container);
+                    insert(vnodeToMove?.el, container, oldStartVNode.el);
+                    oldChildren[idxInOld] = undefined;
+                    newStartVNode = newChildren[++newStartIdx];
+                } else {
+                    // 需要添加新的节点
+                    patch(null, newStartVNode, container, oldStartVNode.el);
+                    newStartVNode = newChildren[++newStartIdx];
+                }
+            }
+        }
+
+        if (oldEndIdx < oldStartIdx && newStartIdx <= newEndIdx) {
+            // 防止 while 循环结束之后还有新的节点没有完成挂载
+            for (let i = newStartIdx; i <= newEndIdx; i++) {
+                patch(null, newChildren[i], container, oldStartVNode.el);
+            }
+        } else if (newEndIdx < newStartIdx && oldStartIdx <= oldEndIdx) {
+            // oldVNode 里还有没有用完的多余节点，需要卸载处理
+            for (let i = oldStartIdx; i <= oldEndIdx; i++) {
+                unmount(oldChildren[i]);
+            }
+
+        }
+
     }
 
     return {
