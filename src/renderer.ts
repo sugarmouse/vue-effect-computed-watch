@@ -7,6 +7,51 @@ type VNode = object & {
     el: HTMLNode;
 } | null;
 
+function getLongestIncreasingSubsequence(nums: number[]): number[] {
+    const p = arr.slice();
+    const result = [0];
+    let i: number, j: number, u: number, v: number, c: number;
+    const len = arr.length;
+
+    for (i = 0; i < len; i++) {
+        const arrI = arr[i];
+        // 从第一个非零元素开始
+        if (arrI !== 0) {
+            j = result[result.length - 1];
+            // 如果当前元素满足递增序列
+            if (arr[j] < arrI) {
+                p[i] = j;
+                result.push(i);
+                continue;
+            }
+            // 二分查找，找到 result 中大于等于当前 arrI 的元素
+            u = 0;
+            v = result.length - 1;
+            while (u < v) {
+                c = ((u + v) / 2) | 0;
+                if (arr[result[c]] < arrI) {
+                    u = c + 1;
+                } else {
+                    v = c;
+                }
+            }
+            if (arrI < arr[result[u]]) {
+                if (u > 0) {
+                    p[i] = result[u - 1];
+                }
+                result[u] = i;
+            }
+        }
+    }
+    u = result.length;
+    v = result[u - 1];
+    while (u-- > 0) {
+        result[u] = v;
+        v = p[v];
+    }
+    return result;
+}
+
 type CreateRendererOptions = {
     createElement: (tag: string) => any,
     setElementText: (el: HTMLNode, text: string) => any,
@@ -168,79 +213,143 @@ function createRenderer(options: CreateRendererOptions) {
         const oldChildren = n1?.children;
         const newChildren = n2?.children;
 
-        let oldStartIdx = 0,
-            oldEndIdx = oldChildren?.length - 1,
-            newStartIdx = 0,
-            newEndIdx = newChildren.length - 1;
+        // 预处理
+        let j = 0;
+        let oldVNode = oldChildren[j],
+            newVNode = newChildren[j];
+        // 找到前置点
+        while (oldVNode.key === newVNode.key) {
+            patch(oldVNode, newVNode, container);
+            j++;
+            oldVNode = oldChildren[j];
+            newVNode = newChildren[j];
+        }
+        // 找到后置点
+        let oldEnd = oldChildren?.length - 1,
+            newEnd = newChildren?.length - 1;
+        oldVNode = oldChildren[oldEnd];
+        newVNode = newChildren[newEnd];
+        while (oldVNode.key === newVNode.key) {
+            oldEnd--;
+            newEnd--;
+            oldVNode = oldChildren[oldEnd];
+            newVNode = newChildren[newEnd];
+        }
 
-        let oldStartVNode = oldChildren[oldStartIdx],
-            oldEndVNode = oldChildren[oldEndIdx],
-            newStartVNode = newChildren[newStartIdx],
-            newEndVNode = newChildren[newEndIdx];
+        if (j > oldEnd && j <= newEnd) {
+            // 挂载新的子节点中新增的节点
+            const anchorIndex = newEnd + 1;
+            const anchor = anchorIndex < newChildren?.length
+                ? newChildren[anchorIndex].el
+                : null;
 
-        while (oldStartIdx <= oldEndIdx && newStartIdx <= newEndIdx) {
-            // 每一轮进行四次比较 (new->old)：头对头，尾对尾，尾对头，头对尾
-            // 找到可复用的 DOM 则直接通过移动操作复用节点
-            if (!oldStartVNode) {
-                oldStartVNode = oldChildren[++oldStartIdx];
-            } else if (!oldEndVNode) {
-                oldEndVNode = oldChildren[--oldEndIdx];
-            } else if (oldStartVNode.key === newStartVNode.key) {
-                // new->old 头尾配对
-                patch(oldStartVNode, newStartVNode, container);
-                oldStartVNode = oldChildren[++oldStartIdx];
-                newStartVNode = newChildren[++newStartIdx];
-            } else if (oldEndVNode.key === newEndVNode.key) {
-                // 尾尾配对，直接 patch 两个节点就可以，不需要移动真实 DOM
-                patch(oldEndVNode, newEndVNode, container);
-                oldEndVNode = oldChildren[--oldEndIdx];
-                newEndVNode = newChildren[--newEndIdx];
-            } else if (oldStartVNode.key === newEndVNode.key) {
-                // new->old 尾头配对
-                patch(oldStartVNode, newEndVNode, container);
-                insert(oldStartVNode?.el, container, oldEndVNode.el.nextSibling);
-                oldStartVNode = oldChildren[++oldStartIdx];
-                newEndVNode = newChildren[--newEndIdx];
-            } else if (oldEndVNode.key === newStartVNode.key) {
-                // new->old 头尾相配
-                patch(oldEndVNode, newStartVNode, container);
-                // 将 旧尾对应的真实 DOM 移到 旧头对应的真实 DOM 之前
-                insert(oldEndVNode?.el, container, oldStartVNode.el);
-                // 更新指针
-                oldEndVNode = oldChildren[--oldEndIdx];
-                newStartVNode = newChildren[++newStartIdx];
-            } else {
-                // 双端 diff 四次比较都没有命中
-                const idxInOld = oldChildren.findIndex(
-                    node => node.key === newStartVNode.key
-                );
-                if (idxInOld > 0) {
-                    const vnodeToMove = oldChildren[idxInOld];
-                    patch(vnodeToMove, newStartVNode, container);
-                    insert(vnodeToMove?.el, container, oldStartVNode.el);
-                    oldChildren[idxInOld] = undefined;
-                    newStartVNode = newChildren[++newStartIdx];
+            while (j <= newEnd) {
+                patch(null, newChildren[j++], container, anchor);
+            }
+        } else if (j <= oldEnd && j > newEnd) {
+            // 卸载多余的旧的子节点
+            while (j <= oldEnd) {
+                unmount(oldChildren[j++]);
+            }
+        } else {
+            /**
+             * count 是新的子节点中预处理之后剩下的待处理的子节点数量
+             */
+            const count = newEnd - j + 1;
+            /**
+             * source 用来记录新的一组子节点中的节点在旧的一组子节点中的位置索引
+             */
+            const source = new Array(count).fill(-1);
+
+            let moved = false;
+            let pos = 0;
+
+            const oldStart = j;
+            const newStart = j;
+            /**
+             * 记录 newVNode：newChildren.indexOf(newVNode) 的映射关系
+             */
+            const keyIndex = {};
+            for (let i = newStart; i <= newEnd; i++) {
+                keyIndex[newChildren[i].key] = i;
+            }
+            /**
+             * 记录旧的子节点中已经被复用过的子节点数量
+            */
+            let patched = 0;
+
+            // 填充 source 数组，并且 patch 可复用的节点
+            for (let i = oldStart; i <= oldEnd; i++) {
+                oldVNode = oldChildren[i];
+                if (patched <= count) {
+                    const k = keyIndex[oldVNode.key];
+                    if (typeof k !== 'undefined') {
+                        newVNode = newChildren[k];
+                        patch(oldVNode, newVNode, container);
+                        patched++;
+                        source[k - newStart] = i;
+                        // 判断节点桑否需要移动
+                        if (k < pos) {
+                            moved = true;
+                        } else {
+                            pos = k;
+                        }
+                    } else {
+                        // 当前旧的子节点不可复用
+                        unmount(oldVNode);
+                    }
                 } else {
-                    // 需要添加新的节点
-                    patch(null, newStartVNode, container, oldStartVNode.el);
-                    newStartVNode = newChildren[++newStartIdx];
+                    // 所有的新的子节点都已经拿到了可复用的 DOM 节点，并且 patch 完成
+                    // 所以这里直接卸载掉多余的旧的子节点
+                    unmount(oldVNode);
                 }
             }
-        }
 
-        if (oldEndIdx < oldStartIdx && newStartIdx <= newEndIdx) {
-            // 防止 while 循环结束之后还有新的节点没有完成挂载
-            for (let i = newStartIdx; i <= newEndIdx; i++) {
-                patch(null, newChildren[i], container, oldStartVNode.el);
+            if (moved) {
+                // 找到 source 数组的最长递增子序列 seq
+                // seq 的含义是：在新的一组子节点中，newChildren[seq[i] + j] 和 oldChildren[source[i]] 是对应的节点
+                // 所以 seq 指的节点是不需要移动的，因为他们在新旧节点序列中的相对位置关系不变
+                const seq = getLongestIncreasingSubsequence(source);
+
+                /**
+                 * 指向最长递增子序列的最后一个元素
+                 */
+                let s = seq.length - 1;
+                /**
+                 * 指向新的一组子节点的最后一个元素
+                 */
+                let i = count - 1;
+
+                for (i; i >= 0; i--) {
+                    if (source[i] === -1) {
+                        // 新的节点，之前只是记录了，但是没有处理过，所以这里需要挂载
+                        const pos = i + newStart;
+                        const newVNode = newChildren[pos];
+                        const nextPos = pos + 1;
+
+                        const anchor = nextPos < newChildren?.length
+                            ? newChildren[nextPos].el
+                            : null;
+                        patch(null, newVNode, container, anchor);
+                    } else if (i !== seq[s]) {
+                        // 该节点不在 seq 内，之前已经 patch 过， 这里只需要移动
+                        const pos = i + newStart;
+                        const newVNode = newChildren[pos];
+                        const nextPos = pos + 1;
+
+                        const anchor = nextPos < newChildren?.length
+                            ? newChildren[nextPos].el
+                            : null;
+
+                        insert(newVNode.el, container, anchor);
+                    } else {
+                        // newChildren[i + j] 在 seq 内，不需要移动
+                        s--;
+                    }
+                }
+
             }
-        } else if (newEndIdx < newStartIdx && oldStartIdx <= oldEndIdx) {
-            // oldVNode 里还有没有用完的多余节点，需要卸载处理
-            for (let i = oldStartIdx; i <= oldEndIdx; i++) {
-                unmount(oldChildren[i]);
-            }
-
         }
-
     }
 
     return {
@@ -263,8 +372,8 @@ function shouldSetAsProps(el: HTMLNode, key: any, value: any) {
 
 const renderer = createRenderer({
     createElement(tag: string) {
-        console.log(`创建元素 ${tag}`);
         return { tag };
+        console.log(`创建元素 ${tag}`);
     },
     setElementText(el, text) {
         console.log(`设置 ${JSON.stringify(el)} 的文本内容 ${text}`);
