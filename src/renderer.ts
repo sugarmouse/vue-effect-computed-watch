@@ -1,4 +1,6 @@
 // @ts-nocheck
+import { reactive, effect } from './effect';
+
 type HTMLNode = HTMLElement & { __vnode: VNode; };
 type VNode = object & {
     type: string,
@@ -64,6 +66,30 @@ type CreateRendererOptions = {
 const TextNode = Symbol();
 const Fragment = Symbol();
 
+const queueJob = (
+    function () {
+        const queue = new Set();
+        let isFlushing = false;
+
+        const p = Promise.resolve();
+
+        return (job: any) => {
+            queue.add(job);
+            if (!isFlushing) {
+                isFlushing = true;
+                // 异步执行副作用函数，避免响应式数据频繁更新时副作用函数的多次执行
+                p.then(() => {
+                    try {
+                        queue.forEach(job => job());
+                    } finally {
+                        isFlushing = false;
+                        queue.clear = 0;
+                    }
+                });
+            }
+        };
+    }
+)();
 
 
 function createRenderer(options: CreateRendererOptions) {
@@ -367,11 +393,20 @@ function createRenderer(options: CreateRendererOptions) {
     */
     function mountComponent(vnode: VNode, container: HTMLNode, anchor: HTMLNode) {
         const componentOptions = vnode?.type;
-        const { render } = componentOptions;
-        // got vnode via render funtion from optional api
-        const subTree = render();
-        // mount vnode from component
-        patch(null, subTree, container, anchor);
+        const { render, data } = componentOptions;
+
+        // got data from option api and reactive it
+        const state = reactive(data());
+        // Implement automatic updating of components using the effect function. 
+        effect(() => {
+            // got vnode via render funtion from optional api
+            // make the render function to access data through 'this' inside.
+            const subTree: VNode = render.call(state, state);
+            // mount vnode from component
+            patch(null, subTree, container, anchor);
+        }, {
+            scheduler: queueJob
+        });
     }
 
     function patchComponent() {

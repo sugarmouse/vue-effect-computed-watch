@@ -505,6 +505,10 @@ function proxyRefs(target: object) {
     });
 }
 
+export {
+    reactive,
+    effect
+};
 
 // example: 
 const obj = reactive({ foo: 1, bar: 2 });
