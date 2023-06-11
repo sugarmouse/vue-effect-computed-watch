@@ -393,17 +393,50 @@ function createRenderer(options: CreateRendererOptions) {
     */
     function mountComponent(vnode: VNode, container: HTMLNode, anchor: HTMLNode) {
         const componentOptions = vnode?.type;
-        const { render, data } = componentOptions;
+        const {
+            render,
+            data,
+            beforeCreate,
+            created,
+            beforeMount,
+            mounted,
+            beforeUpdate,
+            updated
+        } = componentOptions;
+
+        beforeCreate && beforeCreate();
 
         // got data from option api and reactive it
         const state = reactive(data());
+
+        const instance = {
+            state,
+            isMounted: false,
+            subTree: null
+        };
+
+        vnode.component = instance;
+
+        created && created.call(state);
+
         // Implement automatic updating of components using the effect function. 
         effect(() => {
             // got vnode via render funtion from optional api
             // make the render function to access data through 'this' inside.
             const subTree: VNode = render.call(state, state);
-            // mount vnode from component
-            patch(null, subTree, container, anchor);
+            if (!instance.isMounted) {
+                beforeMount && beforeMount.call(state);
+                // mount vnode from component
+                patch(null, subTree, container, anchor);
+                instance.isMounted = true;
+                mounted && mounted.call(state);
+            } else {
+                // update
+                beforeUpdate && beforeUpdate.call(state);
+                patch(instance.subTree, subTree, container, anchor);
+                updated && updated.call(state);
+            }
+            instance.subTree = subTree;
         }, {
             scheduler: queueJob
         });
