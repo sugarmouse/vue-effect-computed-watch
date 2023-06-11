@@ -157,7 +157,12 @@ function createRenderer(options: CreateRendererOptions) {
                 patchChildren(oldVnode, newVnode, container);
             }
         } else if (typeof type === 'object') {
-
+            // vnode.type 的值是选项值，作为组件处理
+            if (!oldVnode) {
+                mountComponent(n2, container, anchor);
+            } else {
+                patchComponent(n1, n2, anchor);
+            }
         } else {
 
         }
@@ -350,6 +355,27 @@ function createRenderer(options: CreateRendererOptions) {
 
             }
         }
+    }
+
+    /**
+     * 
+     * @param vnode 
+     * @param container 
+     * @param anchor
+     * 
+     *  render component 
+    */
+    function mountComponent(vnode: VNode, container: HTMLNode, anchor: HTMLNode) {
+        const componentOptions = vnode?.type;
+        const { render } = componentOptions;
+        // got vnode via render funtion from optional api
+        const subTree = render();
+        // mount vnode from component
+        patch(null, subTree, container, anchor);
+    }
+
+    function patchComponent() {
+
     }
 
     return {
