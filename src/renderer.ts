@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { reactive, effect, shallowReactive } from './effect';
+import { reactive, effect, shallowReactive, shallowReadonly } from './effect';
 
 type HTMLNode = HTMLElement & { __vnode: VNode; };
 type VNode = object & {
@@ -415,6 +415,7 @@ function createRenderer(options: CreateRendererOptions) {
             // option api
             render,
             data,
+            setup,
             props: propsOption,
             beforeCreate,
             created,
@@ -427,7 +428,7 @@ function createRenderer(options: CreateRendererOptions) {
         beforeCreate && beforeCreate();
 
         // got data from option api and reactive it
-        const state = reactive(data());
+        const state = data ? reactive(data()) : null;
         // vnode.props 是调用组件的地方传递给组件的具体参数
         // propsOption 是组件代码内部 props 对象，用来显式的指定组件会接收哪些参数
         const [props, attrs] = resolveProps(propsOption, vnode.props);
@@ -439,6 +440,17 @@ function createRenderer(options: CreateRendererOptions) {
             isMounted: false,
             subTree: null
         };
+
+        const setupContext = { attrs };
+        const setupResult = setup(shallowReadonly(instance.props), setupContext);
+        let setupState = null;
+
+        if (typeof setupResult === "function") {
+            if (render) console.error(`setup function returned a function, so render option was ignored`);
+            render = setupResult;
+        } else {
+            setupState = setupResult;
+        }
 
         vnode.component = instance;
 
@@ -452,8 +464,10 @@ function createRenderer(options: CreateRendererOptions) {
                 const { state, props } = target;
                 if (state && key in state) {
                     return state[key];
-                } else if (k in props) {
+                } else if (key in props) {
                     return props[key];
+                } else if (setupState && key in setupState) {
+                    return setupState[key];
                 } else {
                     console.error("non exist");
                 }
@@ -464,6 +478,8 @@ function createRenderer(options: CreateRendererOptions) {
                     state[key] = val;
                 } else if (key in props) {
                     console.warn(`attempting to mutate prop "${key}". props are readonly `);
+                } else if (setupState && key in setupState) {
+                    setupState[key] = val;
                 } else {
                     console.error(`attempting to access non-exist property`);
                 }
