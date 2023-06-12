@@ -412,6 +412,7 @@ function createRenderer(options: CreateRendererOptions) {
     function mountComponent(vnode: VNode, container: HTMLNode, anchor: HTMLNode) {
         const componentOptions = vnode?.type;
         const {
+            // option api
             render,
             data,
             props: propsOption,
@@ -441,24 +442,52 @@ function createRenderer(options: CreateRendererOptions) {
 
         vnode.component = instance;
 
-        created && created.call(state);
+        // 创建渲染上下文，本质上是组件实例的代理
+        // props 数据和组件自身的状态都需要暴露到渲染函数中，使得渲染函数能够通过 this 访问
+        const renderContext = new Proxy(instance, {
+            // 渲染函数或者生命周期钩子函数通过 this 访问数据时
+            // 优先从自身状态读
+            // 再从 props 数据读
+            get(target, key, receiver) {
+                const { state, props } = target;
+                if (state && key in state) {
+                    return state[key];
+                } else if (k in props) {
+                    return props[key];
+                } else {
+                    console.error("non exist");
+                }
+            },
+            set(target, key, val, receiver) {
+                const { state, props } = target;
+                if (state && key in state) {
+                    state[key] = val;
+                } else if (key in props) {
+                    console.warn(`attempting to mutate prop "${key}". props are readonly `);
+                } else {
+                    console.error(`attempting to access non-exist property`);
+                }
+            }
+        });
+
+        created && created.call(renderContext);
 
         // Implement automatic updating of components using the effect function. 
         effect(() => {
             // got vnode via render funtion from optional api
             // make the render function to access data through 'this' inside.
-            const subTree: VNode = render.call(state, state);
+            const subTree: VNode = render.call(renderContext, state);
             if (!instance.isMounted) {
-                beforeMount && beforeMount.call(state);
+                beforeMount && beforeMount.call(renderContext);
                 // mount vnode from component
                 patch(null, subTree, container, anchor);
                 instance.isMounted = true;
-                mounted && mounted.call(state);
+                mounted && mounted.call(renderContext);
             } else {
                 // update
-                beforeUpdate && beforeUpdate.call(state);
+                beforeUpdate && beforeUpdate.call(renderContext);
                 patch(instance.subTree, subTree, container, anchor);
-                updated && updated.call(state);
+                updated && updated.call(renderContext);
             }
             instance.subTree = subTree;
         }, {
