@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { reactive, effect } from './effect';
+import { reactive, effect, shallowReactive } from './effect';
 
 type HTMLNode = HTMLElement & { __vnode: VNode; };
 type VNode = object & {
@@ -383,6 +383,24 @@ function createRenderer(options: CreateRendererOptions) {
         }
     }
 
+    function resolveProps(options: Object, propsData: Object) {
+        /**
+         * @todo 类型校验和默认值处理
+         */
+        const props = {};
+        const attrs = {};
+        // 如果是组件 options 显式接收的参数，放到 props 对象
+        // 否则放到 attrs 对象
+        for (const key in propsData) {
+            if (key in options) {
+                props[key] = propsData[key];
+            } else {
+                attrs[key] = propsData[key];
+            }
+        }
+        return [props, attrs];
+    }
+
     /**
      * 
      * @param vnode 
@@ -396,6 +414,7 @@ function createRenderer(options: CreateRendererOptions) {
         const {
             render,
             data,
+            props: propsOption,
             beforeCreate,
             created,
             beforeMount,
@@ -408,9 +427,14 @@ function createRenderer(options: CreateRendererOptions) {
 
         // got data from option api and reactive it
         const state = reactive(data());
+        // vnode.props 是调用组件的地方传递给组件的具体参数
+        // propsOption 是组件代码内部 props 对象，用来显式的指定组件会接收哪些参数
+        const [props, attrs] = resolveProps(propsOption, vnode.props);
 
         const instance = {
             state,
+            // 将解析出的 props 数据包装为 shallowReactive 并定义到组件实例上
+            props: shallowReactive(props),
             isMounted: false,
             subTree: null
         };
@@ -442,8 +466,41 @@ function createRenderer(options: CreateRendererOptions) {
         });
     }
 
-    function patchComponent() {
+    function patchComponent(n1: Object, n2: Object, anchor: HTMLNode) {
+        // 组件实例需要添加到新的组件上
+        const instance = (n2.component = n1.component);
 
+        const { props } = instance;
+
+        if (hasPropsChanged(n1.props, n2.props)) {
+            // 拿到新的 props
+            const [nextProps] = resolveProps(n2.type.props, n2.props);
+            // 更新 props
+            for (const k in nextProps) {
+                // 组件的被动渲染
+                // props 是浅响应的，所以这里修改 props 的属性值时
+                // 可以出发组件的重新渲染
+                props[k] = nextProps[k];
+            }
+            // 删除多余的 props
+            for (const k in props) {
+                if (!(k in nextProps)) delete props[k];
+            }
+        }
+    }
+
+    function hasPropsChanged(prevProps: Object, nextProps: Object) {
+        const nextKeys = Object.keys(nextProps);
+
+        if (nextKeys.length !== Object.keys(prevProps).length) {
+            return true;
+        }
+
+        for (let i = 0; i < nextKeys.length; i++) {
+            const key = nextKeys[i];
+            if (nextProps[key] !== prevProps[key]) return true;
+        }
+        return false;
     }
 
     return {

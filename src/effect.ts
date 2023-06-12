@@ -507,7 +507,8 @@ function proxyRefs(target: object) {
 
 export {
     reactive,
-    effect
+    effect,
+    shallowReactive
 };
 
 // example: 
