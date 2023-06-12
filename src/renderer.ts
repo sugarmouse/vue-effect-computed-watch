@@ -389,10 +389,10 @@ function createRenderer(options: CreateRendererOptions) {
          */
         const props = {};
         const attrs = {};
-        // 如果是组件 options 显式接收的参数，放到 props 对象
+        // 如果是组件 options 显式接收的参数或者事件，放到 props 对象
         // 否则放到 attrs 对象
         for (const key in propsData) {
-            if (key in options) {
+            if (key in options || key.startsWith('on')) {
                 props[key] = propsData[key];
             } else {
                 attrs[key] = propsData[key];
@@ -441,7 +441,19 @@ function createRenderer(options: CreateRendererOptions) {
             subTree: null
         };
 
-        const setupContext = { attrs };
+        function emit(event, ...payload) {
+            // example: change -> onChange
+            const eventName = `on${event[0].toUpperCase() + event.slice(1)}`;
+
+            const handler = instance.props[eventName];
+            if (handler) {
+                handler(...payload);
+            } else {
+                console.error(`event ${event} not exist`);
+            }
+        }
+
+        const setupContext = { attrs, emit };
         const setupResult = setup(shallowReadonly(instance.props), setupContext);
         let setupState = null;
 
