@@ -433,12 +433,15 @@ function createRenderer(options: CreateRendererOptions) {
         // propsOption 是组件代码内部 props 对象，用来显式的指定组件会接收哪些参数
         const [props, attrs] = resolveProps(propsOption, vnode.props);
 
+        const slots = vnode?.children || {};
+
         const instance = {
             state,
             // 将解析出的 props 数据包装为 shallowReactive 并定义到组件实例上
             props: shallowReactive(props),
             isMounted: false,
-            subTree: null
+            subTree: null,
+            slots
         };
 
         function emit(event, ...payload) {
@@ -453,7 +456,7 @@ function createRenderer(options: CreateRendererOptions) {
             }
         }
 
-        const setupContext = { attrs, emit };
+        const setupContext = { attrs, emit, slots };
         const setupResult = setup(shallowReadonly(instance.props), setupContext);
         let setupState = null;
 
@@ -473,7 +476,10 @@ function createRenderer(options: CreateRendererOptions) {
             // 优先从自身状态读
             // 再从 props 数据读
             get(target, key, receiver) {
-                const { state, props } = target;
+                const { state, props, slots } = target;
+                if (key === '$slots') {
+                    return slots;
+                }
                 if (state && key in state) {
                     return state[key];
                 } else if (key in props) {
