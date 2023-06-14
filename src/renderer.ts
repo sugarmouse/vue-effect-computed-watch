@@ -9,6 +9,8 @@ type VNode = object & {
     el: HTMLNode;
 } | null;
 
+type Instance = {} | null;
+
 function getLongestIncreasingSubsequence(nums: number[]): number[] {
     const p = arr.slice();
     const result = [0];
@@ -91,6 +93,10 @@ const queueJob = (
     }
 )();
 
+let currentInstance: Instance = null;
+function setCurrentInstance(instance: Instance) {
+    currentInstance = instance;
+}
 
 function createRenderer(options: CreateRendererOptions) {
 
@@ -441,8 +447,17 @@ function createRenderer(options: CreateRendererOptions) {
             props: shallowReactive(props),
             isMounted: false,
             subTree: null,
-            slots
+            slots,
+            mounted: [], // 用来存储通过 onMounted 函数注册的生命周期钩子函数
         };
+
+        function onMounted(fn) {
+            if (currentInstance) {
+                currentInstance.mounted.push(fn);
+            } else {
+                console.error('onMounted function 只能在 setup 中调用');
+            }
+        }
 
         function emit(event, ...payload) {
             // example: change -> onChange
@@ -457,7 +472,11 @@ function createRenderer(options: CreateRendererOptions) {
         }
 
         const setupContext = { attrs, emit, slots };
+
+        setCurrentInstance(instance);
         const setupResult = setup(shallowReadonly(instance.props), setupContext);
+        // setup 函数执行完之后，重置当前组件实例
+        setCurrentInstance(null);
         let setupState = null;
 
         if (typeof setupResult === "function") {
@@ -510,13 +529,15 @@ function createRenderer(options: CreateRendererOptions) {
         effect(() => {
             // got vnode via render funtion from optional api
             // make the render function to access data through 'this' inside.
-            const subTree: VNode = render.call(renderContext, state);
+            const subTree: VNode = render.call(renderContext, renderContext);
             if (!instance.isMounted) {
                 beforeMount && beforeMount.call(renderContext);
                 // mount vnode from component
                 patch(null, subTree, container, anchor);
                 instance.isMounted = true;
                 mounted && mounted.call(renderContext);
+
+                instance.mounted && instance.mounted.forEach(hook => hook.call(renderContext));
             } else {
                 // update
                 beforeUpdate && beforeUpdate.call(renderContext);
