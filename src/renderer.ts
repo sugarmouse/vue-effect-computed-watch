@@ -127,6 +127,10 @@ function createRenderer(options: CreateRendererOptions) {
         if (vnode?.type === Fragment) {
             vnode.children.forEach(child => unmount(child));
             return;
+        } else if (typeof vnode?.type === 'object') {
+            // 对于组件的卸载，本质上是要卸载组件锁渲染的内容，即subTree
+            unmount(vnode.component.subTree);
+            return;
         }
         const parent = vnode?.el.parentNode;
         if (parent) {
@@ -587,76 +591,96 @@ function createRenderer(options: CreateRendererOptions) {
         return false;
     }
 
-    return {
-        render,
+    type Loader = () => Promise<any>;
+    type DefineAsyncComponentOptions = {
+        loader: Loader,
+        timeout?: number,
+        errorComponent?: any;
+        delay?: number;
+        loadingComponent: any;
     };
-}
+    type DefineAsyncComponentParams = Loader | DefineAsyncComponentOptions;
+    /**
+     * defineAsyncComponent 函数定义一个异步组件，本质上是一个高阶组件
+     * @param options - 异步组件的加载器或者选项参数
+     * @returns 返回一个包装的异步组件
+     */
+    function defineAsyncComponent(options: DefineAsyncComponentParams) {
+        // 如果直接传入一个 loader ，则规范为 options
+        if (typeof options === 'function') {
+            options = { loader: options };
+        }
 
-type Loader = () => Promise<any>;
-type DefineAsyncComponentOptions = {
-    loader: Loader,
-    timeout?: number,
-    errorComponent?: any;
-};
-type DefineAsyncComponentParams = Loader | DefineAsyncComponentOptions;
-/**
- * defineAsyncComponent 函数定义一个异步组件，本质上是一个高阶组件
- * @param options - 异步组件的加载器或者选项参数
- * @returns 返回一个包装的异步组件
- */
-function defineAsyncComponent(options: DefineAsyncComponentParams) {
-    // 如果直接传入一个 loader ，则规范为 options
-    if (typeof options === 'function') {
-        options = { loader: options };
+        const { loader } = options;
+        let InnerComp = null;
+        // 返回一个包装的组件
+        return {
+            name: "AsyncComponentWrapper",
+            setup() {
+                const loaded = ref(false);
+                const timeout = ref(false);
+                const error = shallowRef(null);
+                const loading = ref(false);
+
+                let loadingTimer = null;
+
+                if (options.delay) {
+                    loadingTimer = setTimeout(() => {
+                        loading.value = true;
+                    }, options.delay);
+                } else {
+                    loading.value = true;
+                }
+
+                loader()
+                    .then(comp => {
+                        InnerComp = comp;
+                        loaded.value = true;
+                    })
+                    // 捕获加载组件的错误，作为 props 传递给用户
+                    .catch(e => {
+                        error.value = e;
+                    })
+                    .finally(() => {
+                        loading.value = false;
+                        clearTimeout(loadingTimer);
+                    });
+                // 设置超时计时器
+                let timer = null;
+                if (options.timeout) {
+                    timer = setTimeout(() => {
+                        const err = new Error(`Async component timed out after ${options.timeout} ms`);
+                        error.value = err;
+                        timeout.value = true;
+                    }, options.timeout);
+                }
+
+                onUnmounted(() => clearTimeout(timer));
+
+                const palceholder = { type: Text, children: '' };
+
+                return () => {
+                    if (loaded.value) {
+                        return { type: InnerComp };
+                    } else if (error.value && options.errorComponent) {
+                        return {
+                            type: options.errorComponent,
+                            props: { error: error.value }
+                        };
+                    } else if (loading.value && options.loadingComponent) {
+                        return {
+                            type: options.loadingComponent
+                        };
+                    } else {
+                        return palceholder;
+                    }
+                };
+            }
+        };
     }
 
-    const { loader } = options;
-    let InnerComp = null;
-    // 返回一个包装的组件
     return {
-        name: "AsyncComponentWrapper",
-        setup() {
-            const loaded = ref(false);
-            const timeout = ref(false);
-            const error = shallowRef(null);
-
-            loader()
-                .then(comp => {
-                    InnerComp = comp;
-
-                    loaded.value = false;
-                })
-                // 捕获加载组件的错误，作为 props 传递给用户
-                .catch(e => {
-                    error.value = e;
-                });
-            // 设置超时计时器
-            let timer = null;
-            if (options.timeout) {
-                timer = setTimeout(() => {
-                    const err = new Error(`Async component timed out after ${options.timeout} ms`);
-                    error.value = err;
-                    timeout.value = true;
-                }, options.timeout);
-            }
-
-            onUnmounted(() => clearTimeout(timer));
-
-            const palceholder = { type: Text, children: '' };
-
-            return () => {
-                if (loaded.value) {
-                    return { type: InnerComp };
-                } else if (error.value && options.errorComponent) {
-                    return {
-                        type: options.errorComponent,
-                        props: { error: error.value }
-                    };
-                } else {
-                    return palceholder;
-                }
-            };
-        }
+        render,
     };
 }
 
