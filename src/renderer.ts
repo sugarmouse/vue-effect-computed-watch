@@ -618,16 +618,24 @@ function defineAsyncComponent(options: DefineAsyncComponentParams) {
         setup() {
             const loaded = ref(false);
             const timeout = ref(false);
+            const error = shallowRef(null);
 
-            loader().then(comp => {
-                InnerComp = comp;
+            loader()
+                .then(comp => {
+                    InnerComp = comp;
 
-                loaded.value = false;
-            });
+                    loaded.value = false;
+                })
+                // 捕获加载组件的错误，作为 props 传递给用户
+                .catch(e => {
+                    error.value = e;
+                });
             // 设置超时计时器
             let timer = null;
             if (options.timeout) {
                 timer = setTimeout(() => {
+                    const err = new Error(`Async component timed out after ${options.timeout} ms`);
+                    error.value = err;
                     timeout.value = true;
                 }, options.timeout);
             }
@@ -639,12 +647,14 @@ function defineAsyncComponent(options: DefineAsyncComponentParams) {
             return () => {
                 if (loaded.value) {
                     return { type: InnerComp };
-                } else if (timeout.value) {
-                    return options.errorComponent
-                        ? { type: options.errorComponent }
-                        : palceholder;
+                } else if (error.value && options.errorComponent) {
+                    return {
+                        type: options.errorComponent,
+                        props: { error: error.value }
+                    };
+                } else {
+                    return palceholder;
                 }
-                return palceholder;
             };
         }
     };
