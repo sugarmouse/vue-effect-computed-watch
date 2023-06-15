@@ -613,6 +613,31 @@ function createRenderer(options: CreateRendererOptions) {
 
         const { loader } = options;
         let InnerComp = null;
+
+        let retries = 0;
+
+        // 对 loader 函数做一层包裹，错了重试
+        function load() {
+            return loader()
+                .catch(err => {
+                    // 如果用户指定了 onError 回调，则把控制权交给用户
+                    if (options.onError) {
+                        return new Promise((resolve, reject) => {
+                            //  retry 函数，用来执行重试的函数，执行该函数会重新调用 load 函数并重新加载组件
+                            const retry = () => {
+                                resolve(load());
+                                retries++;
+                            };
+
+                            const fail = () => reject(err);
+
+                            options.onError(retry, fail, retries);
+                        });
+                    } else {
+                        throw err;
+                    }
+                });
+        }
         // 返回一个包装的组件
         return {
             name: "AsyncComponentWrapper",
@@ -632,7 +657,7 @@ function createRenderer(options: CreateRendererOptions) {
                     loading.value = true;
                 }
 
-                loader()
+                load()
                     .then(comp => {
                         InnerComp = comp;
                         loaded.value = true;
