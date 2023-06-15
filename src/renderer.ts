@@ -593,6 +593,34 @@ function createRenderer(options: CreateRendererOptions) {
 }
 
 
+/**
+ * defineAsyncComponent 函数定义一个异步组件，本质上是一个高阶组件
+ * @param loader - 异步组件的加载器
+ * @returns 返回一个包装的异步组件
+ */
+function defineAsyncComponent(loader: () => Promise<any>) {
+    let InnerComp = null;
+    // 返回一个包装的组件
+    return {
+        name: "AsyncComponentWrapper",
+        setup() {
+            const loaded = ref(false);
+
+            loader().then(comp => {
+                InnerComp = comp;
+
+                loaded.value = false;
+            });
+
+            return () => {
+                return loaded.value
+                    ? { type: InnerComp }
+                    : { type: TextNode, children: '' };
+            };
+        }
+    };
+}
+
 // example
 function shouldSetAsProps(el: HTMLNode, key: any, value: any) {
     // input.form is a readonly property, so we can't set it with el[key]
