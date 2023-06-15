@@ -192,7 +192,10 @@ function createRenderer(options: CreateRendererOptions) {
             } else {
                 patchChildren(oldVnode, newVnode, container);
             }
-        } else if (typeof type === 'object') {
+        } else if (
+            typeof type === 'object' // 有状态的选项式组件
+            || typeof type === 'function' // 无状态的函数式组件
+        ) {
             // vnode.type 的值是选项值，作为组件处理
             if (!oldVnode) {
                 mountComponent(n2, container, anchor);
@@ -420,7 +423,16 @@ function createRenderer(options: CreateRendererOptions) {
      *  render component 
     */
     function mountComponent(vnode: VNode, container: HTMLNode, anchor: HTMLNode) {
-        const componentOptions = vnode?.type;
+        const isFuntional = typeof vnode.type === 'function';
+        let componentOptions = vnode?.type;
+        // 支持函数式组件
+        if (isFuntional) {
+            componentOptions = {
+                render: vnode?.type,
+                props: vnode?.type.props
+            };
+        }
+
         const {
             // option api
             render,
