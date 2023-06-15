@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { reactive, effect, shallowReactive, shallowReadonly } from './effect';
+import { reactive, effect, shallowReactive, shallowReadonly, ref } from './effect';
 
 type HTMLNode = HTMLElement & { __vnode: VNode; };
 type VNode = object & {
@@ -592,30 +592,59 @@ function createRenderer(options: CreateRendererOptions) {
     };
 }
 
-
+type Loader = () => Promise<any>;
+type DefineAsyncComponentOptions = {
+    loader: Loader,
+    timeout?: number,
+    errorComponent?: any;
+};
+type DefineAsyncComponentParams = Loader | DefineAsyncComponentOptions;
 /**
  * defineAsyncComponent 函数定义一个异步组件，本质上是一个高阶组件
- * @param loader - 异步组件的加载器
+ * @param options - 异步组件的加载器或者选项参数
  * @returns 返回一个包装的异步组件
  */
-function defineAsyncComponent(loader: () => Promise<any>) {
+function defineAsyncComponent(options: DefineAsyncComponentParams) {
+    // 如果直接传入一个 loader ，则规范为 options
+    if (typeof options === 'function') {
+        options = { loader: options };
+    }
+
+    const { loader } = options;
     let InnerComp = null;
     // 返回一个包装的组件
     return {
         name: "AsyncComponentWrapper",
         setup() {
             const loaded = ref(false);
+            const timeout = ref(false);
 
             loader().then(comp => {
                 InnerComp = comp;
 
                 loaded.value = false;
             });
+            // 设置超时计时器
+            let timer = null;
+            if (options.timeout) {
+                timer = setTimeout(() => {
+                    timeout.value = true;
+                }, options.timeout);
+            }
+
+            onUnmounted(() => clearTimeout(timer));
+
+            const palceholder = { type: Text, children: '' };
 
             return () => {
-                return loaded.value
-                    ? { type: InnerComp }
-                    : { type: TextNode, children: '' };
+                if (loaded.value) {
+                    return { type: InnerComp };
+                } else if (timeout.value) {
+                    return options.errorComponent
+                        ? { type: options.errorComponent }
+                        : palceholder;
+                }
+                return palceholder;
             };
         }
     };

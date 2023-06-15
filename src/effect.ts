@@ -509,7 +509,8 @@ export {
     reactive,
     effect,
     shallowReactive,
-    shallowReadonly
+    shallowReadonly,
+    ref
 };
 
 // example: 
