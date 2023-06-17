@@ -716,6 +716,49 @@ function createRenderer(options: CreateRendererOptions) {
         };
     }
 
+    const KeepAlive = {
+        __isKeepAlive: true,
+        setup(props, { slots }) {
+            // vnode.type -> vnode 的映射
+            const cache = new Map();
+
+            const instance = currentInstance;
+
+            const { move, createElement } = instance.keepAliveCtx;
+
+            const storageContainer = createElement('div');
+
+            instance.__deActive = (vnode) => {
+                move(vnode, storageContainer);
+            };
+
+            instance.__active = (vnode, container, anchor) => {
+                move(vnode, container, anchor);
+            };
+
+            return () => {
+                let rawVNode = slots.default();
+
+                if (typeof rawVNode.type !== 'object') {
+                    return rawVNode;
+                }
+
+                const cachedVNode = cache.get(rawVNode.type);
+                if (cachedVNode) {
+                    rawVNode.component = cachedVNode.component;
+                    rawVNode.keptAlive = true;
+                } else {
+                    cache.set(rawVNode.type, rawVNode);
+                }
+
+                rawVNode.keepAliveInstance = instance;
+
+                return rawVNode;
+
+            };
+        }
+    };
+
     return {
         render,
     };
