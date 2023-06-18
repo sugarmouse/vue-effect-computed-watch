@@ -128,8 +128,13 @@ function createRenderer(options: CreateRendererOptions) {
             vnode.children.forEach(child => unmount(child));
             return;
         } else if (typeof vnode?.type === 'object') {
-            // 对于组件的卸载，本质上是要卸载组件锁渲染的内容，即subTree
-            unmount(vnode.component.subTree);
+            if (vnode.shouldKeepAlive) {
+                // 对于 keepAlive 组件的卸载，调用其父组件的 __deActive 方法隐藏，而不是真正的卸载
+                vnode.keepAliveInstance.__deActive(vnode);
+            } else {
+                // 对于组件的卸载，本质上是要卸载组件锁渲染的内容，即subTree
+                unmount(vnode.component.subTree);
+            }
             return;
         }
         const parent = vnode?.el.parentNode;
@@ -198,7 +203,12 @@ function createRenderer(options: CreateRendererOptions) {
         ) {
             // vnode.type 的值是选项值，作为组件处理
             if (!oldVnode) {
-                mountComponent(n2, container, anchor);
+                if (newVnode.keptAlive) {
+                    // 如果该组件已经被 KeepAlive，则不会重新挂载它，而是调用 __active 来激活
+                    newVnode.keepAliveInstance.__active(newVnode, container, anchor);
+                } else {
+                    mountComponent(n2, container, anchor);
+                }
             } else {
                 patchComponent(n1, n2, anchor);
             }
@@ -465,7 +475,19 @@ function createRenderer(options: CreateRendererOptions) {
             subTree: null,
             slots,
             mounted: [], // 用来存储通过 onMounted 函数注册的生命周期钩子函数
+            keepAliveCtx: null // 只有 KeepAlive 组件实例下会有 keepAliveCtx 属性
         };
+
+        // 检查是否是 KeepAlive 组件，并为实例添加 keepAliveCtx
+        const isKeepAlive = vnode?.type.__isKeepAlive
+        if(isKeepAlive) {
+            instance.keepAliveCtx = {
+                move(vnode, container, anchor) {
+                    insert(vnode.component.subTree.el, container, anchor)
+                },
+                createElement
+            }
+        }
 
         function onMounted(fn) {
             if (currentInstance) {
@@ -764,7 +786,7 @@ const KeepAlive = {
             }
 
             // 组件 vnode 上添加 shouldKeepAlive 属性
-            rawVNode.shouldKeepAlive = true
+            rawVNode.shouldKeepAlive = true;
 
             // 在 vnode 上添加 keepAlive 组件的实例，以便在渲染器中访问
             rawVNode.keepAliveInstance = instance;
