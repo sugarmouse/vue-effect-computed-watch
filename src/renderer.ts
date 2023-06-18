@@ -716,66 +716,66 @@ function createRenderer(options: CreateRendererOptions) {
         };
     }
 
-    const KeepAlive = {
-        __isKeepAlive: true,
-        setup(props, { slots }) {
-            // vnode.type -> vnode 的映射
-            const cache = new Map();
-
-            const instance = currentInstance;
-
-            // 对于 keepAlive 组件来说，它的实例上存在特殊的 keepAliveCtx 对象，该对象由渲染器注入
-            // 该对象会暴露渲染器的一些内部方法，其中 move 函数用来将一段 DOM 移动到另一个容器中
-            const { move, createElement } = instance.keepAliveCtx;
-
-            // 创建隐藏容器
-            const storageContainer = createElement('div');
-
-            // keepAlive 组件的挂载和卸载与一般的组件不同，不是真正的卸载与挂载
-            // 卸载就是将其放入一个隐藏的容器
-            instance.__deActive = (vnode) => {
-                move(vnode, storageContainer);
-            };
-            instance.__active = (vnode, container, anchor) => {
-                move(vnode, container, anchor);
-            };
-
-            return () => {
-                // keepAlive 的默认插槽是需要被 keepAlive 的组件
-                let rawVNode = slots.default();
-
-                // 如果不是组件直接渲染
-                if (typeof rawVNode.type !== 'object') {
-                    return rawVNode;
-                }
-
-                // 缓存节点
-                const cachedVNode = cache.get(rawVNode.type);
-                if (cachedVNode) {
-                    rawVNode.component = cachedVNode.component;
-                    rawVNode.keptAlive = true;
-                } else {
-                    cache.set(rawVNode.type, rawVNode);
-                }
-
-                // 组件 vnode 上添加 shouldKeepAlive 属性
-                rawVNode.shouldKeepAlive = true
-
-                // 在 vnode 上添加 keepAlive 组件的实例，以便在渲染器中访问
-                rawVNode.keepAliveInstance = instance;
-
-                return rawVNode;
-
-            };
-        }
-    };
-
     return {
         render,
     };
 }
 
-// example
+const KeepAlive = {
+    __isKeepAlive: true,
+    setup(props, { slots }) {
+        // vnode.type -> vnode 的映射
+        const cache = new Map();
+
+        const instance = currentInstance;
+
+        // 对于 keepAlive 组件来说，它的实例上存在特殊的 keepAliveCtx 对象，该对象由渲染器注入
+        // 该对象会暴露渲染器的一些内部方法，其中 move 函数用来将一段 DOM 移动到另一个容器中
+        const { move, createElement } = instance.keepAliveCtx;
+
+        // 创建隐藏容器
+        const storageContainer = createElement('div');
+
+        // keepAlive 组件的挂载和卸载与一般的组件不同，不是真正的卸载与挂载
+        // 卸载就是将其放入一个隐藏的容器
+        instance.__deActive = (vnode) => {
+            move(vnode, storageContainer);
+        };
+        instance.__active = (vnode, container, anchor) => {
+            move(vnode, container, anchor);
+        };
+
+        return () => {
+            // keepAlive 的默认插槽是需要被 keepAlive 的组件
+            let rawVNode = slots.default();
+
+            // 如果不是组件直接渲染
+            if (typeof rawVNode.type !== 'object') {
+                return rawVNode;
+            }
+
+            // 缓存节点
+            const cachedVNode = cache.get(rawVNode.type);
+            if (cachedVNode) {
+                rawVNode.component = cachedVNode.component;
+                rawVNode.keptAlive = true;
+            } else {
+                cache.set(rawVNode.type, rawVNode);
+            }
+
+            // 组件 vnode 上添加 shouldKeepAlive 属性
+            rawVNode.shouldKeepAlive = true
+
+            // 在 vnode 上添加 keepAlive 组件的实例，以便在渲染器中访问
+            rawVNode.keepAliveInstance = instance;
+
+            return rawVNode;
+
+        };
+    }
+};
+
+
 function shouldSetAsProps(el: HTMLNode, key: any, value: any) {
     // input.form is a readonly property, so we can't set it with el[key]
     /**
@@ -853,4 +853,3 @@ const renderer = createRenderer({
     }
 });
 
-// example
