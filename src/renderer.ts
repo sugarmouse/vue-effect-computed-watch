@@ -479,14 +479,14 @@ function createRenderer(options: CreateRendererOptions) {
         };
 
         // 检查是否是 KeepAlive 组件，并为实例添加 keepAliveCtx
-        const isKeepAlive = vnode?.type.__isKeepAlive
-        if(isKeepAlive) {
+        const isKeepAlive = vnode?.type.__isKeepAlive;
+        if (isKeepAlive) {
             instance.keepAliveCtx = {
                 move(vnode, container, anchor) {
-                    insert(vnode.component.subTree.el, container, anchor)
+                    insert(vnode.component.subTree.el, container, anchor);
                 },
                 createElement
-            }
+            };
         }
 
         function onMounted(fn) {
@@ -745,6 +745,12 @@ function createRenderer(options: CreateRendererOptions) {
 
 const KeepAlive = {
     __isKeepAlive: true,
+    // 定义 include 和 exclude props
+    props: {
+        include: RegExp,
+        exclude: RegExp
+    },
+
     setup(props, { slots }) {
         // vnode.type -> vnode 的映射
         const cache = new Map();
@@ -774,6 +780,18 @@ const KeepAlive = {
             // 如果不是组件直接渲染
             if (typeof rawVNode.type !== 'object') {
                 return rawVNode;
+            }
+
+            const name = rawVNode.type.name;
+            
+            // 检查是否有用户指定的 include 或者 exclude
+            if (name
+                && (
+                    (props.include && !props.include.test(name))
+                    || (props.exclude && props.exclude.test(name))
+                )
+            ) {
+                return rawVNode
             }
 
             // 缓存节点
