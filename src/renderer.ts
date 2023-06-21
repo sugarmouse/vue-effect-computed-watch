@@ -795,8 +795,13 @@ const KeepAlive = {
             }
 
             // 缓存节点
+            /**
+             * @todo 缓存策略
+             */
             const cachedVNode = cache.get(rawVNode.type);
             if (cachedVNode) {
+                // vnode.component 是对 vnode 对象存在实例的引用
+                // 所以缓存 vnode 对象就等于缓存了组件实例
                 rawVNode.component = cachedVNode.component;
                 rawVNode.keptAlive = true;
             } else {
