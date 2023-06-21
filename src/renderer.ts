@@ -197,7 +197,20 @@ function createRenderer(options: CreateRendererOptions) {
             } else {
                 patchChildren(oldVnode, newVnode, container);
             }
-        } else if (
+        }
+        else if (typeof type === "object" && type.__isTeleport) {
+            // 处理 Teleport 组件的逻辑
+            // 将控制权交出去，并且暴露出渲染器的一些方法给组件
+            type.process(oldVnode, newVnode, container, anchor, {
+                patch,
+                patchChildren,
+                unmount,
+                move(vnode, container, anchor) {
+                    insert(vnode.component ? vnode.component.subTree.el : vnode.el, container, anchor);
+                }
+            });
+        }
+        else if (
             typeof type === 'object' // 有状态的选项式组件
             || typeof type === 'function' // 无状态的函数式组件
         ) {
@@ -783,7 +796,7 @@ const KeepAlive = {
             }
 
             const name = rawVNode.type.name;
-            
+
             // 检查是否有用户指定的 include 或者 exclude
             if (name
                 && (
@@ -791,7 +804,7 @@ const KeepAlive = {
                     || (props.exclude && props.exclude.test(name))
                 )
             ) {
-                return rawVNode
+                return rawVNode;
             }
 
             // 缓存节点
@@ -818,6 +831,18 @@ const KeepAlive = {
 
         };
     }
+};
+
+/**
+ * 该组件可以将指定的内容渲染到特定的容器中，而不受 DOM 层级的限制
+ * 可用做蒙层组件
+ */
+const Teleport = {
+    __isTeleport: true,
+    process(n1, n2, container, anchor) {
+
+    }
+
 };
 
 
