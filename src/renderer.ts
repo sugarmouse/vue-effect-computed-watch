@@ -205,6 +205,8 @@ function createRenderer(options: CreateRendererOptions) {
                 patch,
                 patchChildren,
                 unmount,
+                // 这里的 move 函数只考虑了组件和普通 DOM 元素
+                // 还需要考虑文本类型，Fragment 等等所有类型的节点
                 move(vnode, container, anchor) {
                     insert(vnode.component ? vnode.component.subTree.el : vnode.el, container, anchor);
                 }
@@ -836,11 +838,29 @@ const KeepAlive = {
 /**
  * 该组件可以将指定的内容渲染到特定的容器中，而不受 DOM 层级的限制
  * 可用做蒙层组件
+ *  Teleport 组件的子节点会被编译成一个数组
  */
 const Teleport = {
     __isTeleport: true,
-    process(n1, n2, container, anchor) {
+    process(n1, n2, container, anchor, internals) {
+        const { patch, patchChildren } = internals;
+        
+        // 获取容器
+        const target = typeof n2.props.to === 'string'
+            ? document.querySelector(n2.props.to)
+            : n2.props.to;
 
+        if (!n1) {
+            // 没有旧的 vnode， 挂载
+            n2.children.forEach(child => patch(null, child, target, anchor));
+        } else {
+            // update n2
+            patchChildren(n1, n2, container);
+
+            if (n2.props.to !== n1.props.to) {
+                n2.children.forEach(child => move(child, target));
+            }
+        }
     }
 
 };
