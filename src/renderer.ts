@@ -902,13 +902,36 @@ const Transiton = {
             // 添加 transition 相关的钩子函数
             innerVNode.transition = {
                 beforeEnter(el) {
-
+                    el.classList.add('enter-from');
+                    el.classList.add('enter-active');
                 },
                 enter(el) {
-
+                    nextFrame(() => {
+                        el.classList.remove('enter-from');
+                        el.classList.add('enter-to');
+                        el.addEventListener('transitionend', () => {
+                            el.classList.remove('enter-to');
+                            el.classList.remove('enter-active');
+                        });
+                    });
                 },
-                leave(el) {
+                leave(el, performRemove) {
+                    el.classList.add('leave-from')
+                    el.classList.add('leave-active')
 
+                    // 强制 reflow，使得初始状态生效
+                    document.body.offsetHeight
+
+                    nextFrame(()=> {
+                        el.classList.remove('leave-from')
+                        el.classList.add('leave-to')
+
+                        el.addEventListener('transitionend', ()=>{
+                            el.classList.remove('leave-to')
+                            el.classList.remove('leave-active')
+                            performRemove()
+                        })
+                    })
                 }
             };
 
