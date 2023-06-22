@@ -865,6 +865,39 @@ const Teleport = {
 
 };
 
+/**
+ * Transition 内建组件
+ * 
+ * 1. 当 DOM 元素被挂载时，将动效附加到该 DOM 元素上
+ * 2. 当 DOM 元素被卸载时，不是立即卸载，而是执行完该 DOM 元素上附加的动效之后再卸载
+ */
+const Transiton = {
+    name:'Transition',
+    setup(props, {slots}) {
+
+        return () => {
+            // transition 组件的子节点编译成默认插槽
+            // 获取子节点（需要过渡的元素）
+            const innerVNode = slots.default()
+
+            // 添加 transition 相关的钩子函数
+            innerVNode.transition = {
+                beforeEnter(el) {
+
+                },
+                enter(el) {
+                    
+                },
+                leave(el) {
+
+                }
+            }
+
+            return innerVNode
+        }
+    }
+
+}
 
 function shouldSetAsProps(el: HTMLNode, key: any, value: any) {
     // input.form is a readonly property, so we can't set it with el[key]
