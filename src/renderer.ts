@@ -124,6 +124,10 @@ function createRenderer(options: CreateRendererOptions) {
     }
 
     function unmount(vnode: VNode) {
+
+        // Transition 组件的钩子函数组成的对象
+        const needTranstion = vnode.transtion;
+
         if (vnode?.type === Fragment) {
             vnode.children.forEach(child => unmount(child));
             return;
@@ -139,7 +143,13 @@ function createRenderer(options: CreateRendererOptions) {
         }
         const parent = vnode?.el.parentNode;
         if (parent) {
-            parent.removeChild(vnode.el);
+            const performRemove = () => parent.removeChild(vnode.el);
+            if (needTranstion) {
+                // 如果虚拟节点是 Transition 的子节点，调用 transition.leave 钩子函数
+                vnode.transition.leave(vnode.el, performRemove);
+            } else {
+                parent.removeChild(vnode.el);
+            }
         }
     }
 
@@ -161,7 +171,16 @@ function createRenderer(options: CreateRendererOptions) {
             }
         }
 
+        // 判断 vnode 是不是 Transition 的子节点
+        const needTransition = vnode.transition;
+
+        if (needTransition) {
+            vnode.transition.beforeEnter(el);
+        }
+
         insert(el, container, anchor);
+
+        vnode.transtion.enter(el);
     }
 
     function patch(oldVnode: VNode, newVnode: VNode, container: HTMLNode, anchor: HTMLNode) {
@@ -844,7 +863,7 @@ const Teleport = {
     __isTeleport: true,
     process(n1, n2, container, anchor, internals) {
         const { patch, patchChildren } = internals;
-        
+
         // 获取容器
         const target = typeof n2.props.to === 'string'
             ? document.querySelector(n2.props.to)
@@ -872,13 +891,13 @@ const Teleport = {
  * 2. 当 DOM 元素被卸载时，不是立即卸载，而是执行完该 DOM 元素上附加的动效之后再卸载
  */
 const Transiton = {
-    name:'Transition',
-    setup(props, {slots}) {
+    name: 'Transition',
+    setup(props, { slots }) {
 
         return () => {
             // transition 组件的子节点编译成默认插槽
             // 获取子节点（需要过渡的元素）
-            const innerVNode = slots.default()
+            const innerVNode = slots.default();
 
             // 添加 transition 相关的钩子函数
             innerVNode.transition = {
@@ -886,18 +905,18 @@ const Transiton = {
 
                 },
                 enter(el) {
-                    
+
                 },
                 leave(el) {
 
                 }
-            }
+            };
 
-            return innerVNode
-        }
+            return innerVNode;
+        };
     }
 
-}
+};
 
 function shouldSetAsProps(el: HTMLNode, key: any, value: any) {
     // input.form is a readonly property, so we can't set it with el[key]
