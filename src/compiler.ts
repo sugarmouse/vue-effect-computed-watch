@@ -2,6 +2,7 @@ type Template = string;
 type AST = object;
 type JSAST = object;
 type RenderFuntion = (...arg: any[]) => any;
+type Tokens = any[]
 
 enum State {
     Initial,
@@ -16,7 +17,7 @@ function isAlpha(char: string) {
     return char >= 'a' && char <= 'z' || char >= 'A' && char <= 'Z';
 }
 
-function tokenize(str: Template): AST {
+function tokenize(str: Template): Tokens {
     let currentState: State = State.Initial;
     const chars: string[] = [];
 
@@ -112,7 +113,45 @@ function tokenize(str: Template): AST {
 // template code -> template AST
 function parse(template: Template): AST {
 
-    return {};
+    const tokens = tokenize(template);
+
+    const root = {
+        type: 'Root',
+        children: []
+    }
+
+    const elementStack: AST[] = [root];
+
+    while (tokens.length !== 0) {
+        const parent = elementStack[elementStack.length -1]
+
+        const t = tokens[0];
+
+        switch (t.type) {
+            case 'tag':
+                const elementNode = {
+                    type: 'Element',
+                    tag: t.value,
+                    children: []
+                }
+                parent.children.push(elementNode);
+                elementStack.push(elementNode);
+                break
+            case 'text':
+                const textNode = {
+                    type: 'Text',
+                    content: t.content
+                }
+                parent.children.push(textNode);
+                break
+            case 'tagEnd':
+                elementStack.pop();
+                break
+        }
+        tokens.shift();
+    }
+
+    return root;
 }
 
 // template AST -> JS AST
