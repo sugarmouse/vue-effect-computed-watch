@@ -134,7 +134,7 @@ function tokenize(str: Template): Tokens {
 }
 
 // template code -> template AST
-function parse(template: Template): AST {
+function parse(template: Template): ASTNode_Root {
     const tokens = tokenize(template);
 
     const root: ASTNode_Root = {
