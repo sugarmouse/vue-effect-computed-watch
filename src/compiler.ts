@@ -1,9 +1,32 @@
+// types
 type Template = string;
 type AST = object;
 type JSAST = object;
 type RenderFuntion = (...arg: any[]) => any;
-type Tokens = any[]
 
+type TokenNode_Tag = { type: 'tag', value: string; };
+type TokenNode_Text = { type: 'text', content: string; };
+type TokenNode_TagEnd = { type: 'tagEnd', value: string; };
+type TokenNode = TokenNode_Tag | TokenNode_Text | TokenNode_TagEnd;
+type Tokens = TokenNode[];
+
+
+type ASTNode_Root = {
+    type: 'Root',
+    children: ASTNode[];
+};
+type ASTNode_Element = {
+    type: 'Element',
+    tag: string,
+    children: (ASTNode_Element | ASTNode_Text)[],
+};
+type ASTNode_Text = {
+    type: 'Text',
+    content: string;
+};
+type ASTNode = ASTNode_Element | ASTNode_Text | ASTNode_Root;
+
+// code
 enum State {
     Initial,
     TagOpen,
@@ -112,41 +135,42 @@ function tokenize(str: Template): Tokens {
 
 // template code -> template AST
 function parse(template: Template): AST {
-
     const tokens = tokenize(template);
 
-    const root = {
+    const root: ASTNode_Root = {
         type: 'Root',
         children: []
-    }
+    };
 
-    const elementStack: AST[] = [root];
+    // 维护元素间的父子关系
+    const elementStack: (ASTNode_Element | ASTNode_Root)[] = [root];
 
     while (tokens.length !== 0) {
-        const parent = elementStack[elementStack.length -1]
+        const parent = elementStack[elementStack.length - 1];
 
         const t = tokens[0];
 
+        // 处理token
         switch (t.type) {
             case 'tag':
-                const elementNode = {
+                const elementNode: ASTNode_Element = {
                     type: 'Element',
                     tag: t.value,
                     children: []
-                }
+                };
                 parent.children.push(elementNode);
                 elementStack.push(elementNode);
-                break
+                break;
             case 'text':
-                const textNode = {
+                const textNode: ASTNode_Text = {
                     type: 'Text',
                     content: t.content
-                }
+                };
                 parent.children.push(textNode);
-                break
+                break;
             case 'tagEnd':
                 elementStack.pop();
-                break
+                break;
         }
         tokens.shift();
     }
