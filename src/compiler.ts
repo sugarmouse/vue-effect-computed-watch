@@ -11,7 +11,11 @@ type TokenNode = TokenNode_Tag | TokenNode_Text | TokenNode_TagEnd;
 type Tokens = TokenNode[];
 
 type Transform = (node: ASTNode, context: TransformCtx) => void;
+
 interface TransformCtx {
+    currentNode: ASTNode | null;
+    childIndex: number;                   // 记录当前节点在父节点中的位置索引
+    parent: ASTNode | null;
     nodeTransforms: Array<Transform>;
 }
 
@@ -185,21 +189,23 @@ function parse(template: Template): ASTNode_Root {
 
 function traverseNode(ast: ASTNode, context: TransformCtx) {
 
-    let currentNode = ast;
+    context.currentNode = ast;
     const transforms = context.nodeTransforms;
 
     // execute transforms
     for (let i = 0; i < transforms.length; i++) {
-        transforms[i](currentNode, context);
+        transforms[i](context.currentNode, context);
     }
 
-    if (currentNode.type === "Text") {
+    if (context.currentNode.type === "Text") {
         return;
     }
 
     // traverse children
-    let children = currentNode.children;
+    let children = context.currentNode.children;
     for (let i = 0; i < children.length; i++) {
+        context.parent = context.currentNode;
+        context.childIndex = i;
         traverseNode(children[i], context);
     }
 
@@ -207,12 +213,17 @@ function traverseNode(ast: ASTNode, context: TransformCtx) {
 
 // template AST -> JS AST
 function transform(ast: ASTNode): JSAST {
-    traverseNode(ast, {
+
+    const context: TransformCtx = {
+        currentNode: null,
+        childIndex: 0,
+        parent: null,
         nodeTransforms: [
             trnasformText,
             transformElement
         ]
-    });
+    };
+    traverseNode(ast, context);
 
     dump(ast);
     return {};
