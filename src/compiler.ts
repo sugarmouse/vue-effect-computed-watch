@@ -206,8 +206,26 @@ function traverseNode(ast: ASTNode, context: TransformCtx) {
 }
 
 // template AST -> JS AST
-function transform(ast: AST): JSAST {
+function transform(ast: ASTNode): JSAST {
+    traverseNode(ast, {
+        nodeTransforms: [
+            trnasformText,
+            transformElement
+        ]
+    });
+
+    dump(ast);
     return {};
+}
+
+function transformElement(node: ASTNode, context: TransformCtx) {
+    if (node.type !== 'Element') return;
+    // transform element ast node here
+}
+
+function trnasformText(node: ASTNode, context: TransformCtx) {
+    if (node.type !== 'Text') return;
+    // transform text ast node here
 }
 
 // JS AST -> render function
