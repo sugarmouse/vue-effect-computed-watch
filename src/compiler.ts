@@ -17,6 +17,7 @@ interface TransformCtx {
     childIndex: number;                   // 记录当前节点在父节点中的位置索引
     parent: ASTNode | null;
     replaceNode: (node: ASTNode) => void;
+    removeNode: () => void;
     nodeTransforms: Array<Transform>;
 }
 
@@ -196,6 +197,9 @@ function traverseNode(ast: ASTNode, context: TransformCtx) {
     // execute transforms
     for (let i = 0; i < transforms.length; i++) {
         transforms[i](context.currentNode, context);
+        // 因为context暴露给 transform[i],而context里有 removeNode 函数
+        // 所以任何节点 transform[i] 都有可能会删除节点
+        if (!context.currentNode) return;
     }
 
     if (context.currentNode.type === "Text") {
@@ -220,8 +224,18 @@ function transform(ast: ASTNode): JSAST {
         childIndex: 0,
         parent: null,
         replaceNode(node) {
-            context.parent.children[context.childIndex] = node;
+            if (context.parent && context.parent.type !== 'Text') {
+                context.parent.children[context.childIndex] = node;
+            }
             context.currentNode = node;
+        },
+        removeNode() {
+            if (context.parent) {
+                // 删除当前节点
+                if (context.parent.type !== 'Text') context.parent.children.splice(context.childIndex, 1);
+                // set current node to null
+                context.currentNode = null;
+            }
         },
         nodeTransforms: [
             trnasformText,
