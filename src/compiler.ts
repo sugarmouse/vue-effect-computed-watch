@@ -16,6 +16,7 @@ interface TransformCtx {
     currentNode: ASTNode | null;
     childIndex: number;                   // 记录当前节点在父节点中的位置索引
     parent: ASTNode | null;
+    replaceNode: (node: ASTNode) => void;
     nodeTransforms: Array<Transform>;
 }
 
@@ -218,6 +219,10 @@ function transform(ast: ASTNode): JSAST {
         currentNode: null,
         childIndex: 0,
         parent: null,
+        replaceNode(node) {
+            context.parent.children[context.childIndex] = node;
+            context.currentNode = node;
+        },
         nodeTransforms: [
             trnasformText,
             transformElement
@@ -246,3 +251,35 @@ function generate(jsast: JSAST): RenderFuntion {
     }
     return render;
 }
+
+// debug helper code
+/**
+ * Recursively outputs the type and description of a given ASTNode,
+ * along with its children if it has any.
+ * 
+ * @param {ASTNode} node - the node to be outputted
+ * @param {number} indent - the current indentation level (default 0)
+ */
+function dump(node: ASTNode, indent = 0) {
+    const type = node.type;
+
+    const desc = node.type === 'Root'
+        ? ''
+        : node.type === 'Element'
+            ? node.tag
+            : node.content;
+
+    // output the node type and description with the current indentation
+    console.log(`${'-'.repeat(indent)}${type}: ${desc}`);
+
+    // if the node is not a Text node and has children, output each child
+    if (node.type !== "Text" && node.children) {
+        node.children.forEach(child => {
+            // recursively output the child, with increased indentation
+            dump(child, indent + 2);
+        });
+    }
+}
+
+const ast = parse(`<div><p>Vue</p><p>Teamplate</p></div>`);
+transform(ast);
