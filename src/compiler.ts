@@ -249,13 +249,16 @@ function transform(ast: ASTNode): JSAST {
 }
 
 function transformElement(node: ASTNode, context: TransformCtx) {
-    if (node.type !== 'Element') return;
-    // transform element ast node here
+    if (context.currentNode && context.currentNode.type !== 'Element') return;
+    if (context.currentNode?.tag === 'p') {
+        context.currentNode.tag = 'h1';
+    }
 }
 
 function trnasformText(node: ASTNode, context: TransformCtx) {
     if (node.type !== 'Text') return;
     // transform text ast node here
+    context.replaceNode({ type: 'Element', tag: 'span', children: [] });
 }
 
 // JS AST -> render function
