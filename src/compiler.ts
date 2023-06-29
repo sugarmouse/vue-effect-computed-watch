@@ -10,7 +10,8 @@ type TokenNode_TagEnd = { type: 'tagEnd', value: string; };
 type TokenNode = TokenNode_Tag | TokenNode_Text | TokenNode_TagEnd;
 type Tokens = TokenNode[];
 
-type Transform = (node: ASTNode, context: TransformCtx) => void;
+type TransformReturnFn = () => void ;
+type Transform = (node: ASTNode, context: TransformCtx) => void | TransformReturnFn;
 
 interface TransformCtx {
     currentNode: ASTNode | null;
@@ -192,11 +193,15 @@ function parse(template: Template): ASTNode_Root {
 function traverseNode(ast: ASTNode, context: TransformCtx) {
 
     context.currentNode = ast;
+    
+    // 用来存放回溯的时候处理节点的函数
+    const exitFn:TransformReturnFn[] = [];
     const transforms = context.nodeTransforms;
 
     // execute transforms
     for (let i = 0; i < transforms.length; i++) {
-        transforms[i](context.currentNode, context);
+        const onExit = transforms[i](context.currentNode, context);
+        if (onExit) exitFn.push(onExit);
         // 因为context暴露给 transform[i],而context里有 removeNode 函数
         // 所以任何节点 transform[i] 都有可能会删除节点
         if (!context.currentNode) return;
@@ -212,6 +217,13 @@ function traverseNode(ast: ASTNode, context: TransformCtx) {
         context.parent = context.currentNode;
         context.childIndex = i;
         traverseNode(children[i], context);
+    }
+
+    // 反序执行
+    // 反序执行的意义是为了先进入的转换函数等待前一个转换函数全部执行完
+    let i = exitFn.length
+    while(i--) {
+        exitFn[i]();
     }
 
 }
