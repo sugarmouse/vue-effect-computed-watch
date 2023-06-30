@@ -10,7 +10,7 @@ type TokenNode_TagEnd = { type: 'tagEnd', value: string; };
 type TokenNode = TokenNode_Tag | TokenNode_Text | TokenNode_TagEnd;
 type Tokens = TokenNode[];
 
-type TransformReturnFn = () => void ;
+type TransformReturnFn = () => void;
 type Transform = (node: ASTNode, context: TransformCtx) => void | TransformReturnFn;
 
 interface TransformCtx {
@@ -193,9 +193,9 @@ function parse(template: Template): ASTNode_Root {
 function traverseNode(ast: ASTNode, context: TransformCtx) {
 
     context.currentNode = ast;
-    
+
     // 用来存放回溯的时候处理节点的函数
-    const exitFn:TransformReturnFn[] = [];
+    const exitFn: TransformReturnFn[] = [];
     const transforms = context.nodeTransforms;
 
     // execute transforms
