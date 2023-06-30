@@ -221,12 +221,50 @@ function traverseNode(ast: ASTNode, context: TransformCtx) {
 
     // 反序执行
     // 反序执行的意义是为了先进入的转换函数等待前一个转换函数全部执行完
-    let i = exitFn.length
-    while(i--) {
+    let i = exitFn.length;
+    while (i--) {
         exitFn[i]();
     }
 
 }
+
+function createStringLiteral(value: string) {
+    return {
+        type: 'StringLiteral',
+        value
+    };
+}
+
+function createIdentifier(name: string) {
+    return {
+        type: 'Identifier',
+        name
+    };
+}
+
+function createArrayExpression(elements) {
+    return {
+        type: 'ArrayExpression',
+        elements
+    };
+}
+
+function createArrayExpress (elements) {
+    return {
+        type: 'ArrayExpression',
+        elements
+    }
+}
+
+function createCallExpression(callee, args) {
+    return {
+        type: 'CallExpression',
+        callee: createIdentifier(callee),
+        args
+    }
+}
+
+
 
 // template AST -> JS AST
 function transform(ast: ASTNode): JSAST {
