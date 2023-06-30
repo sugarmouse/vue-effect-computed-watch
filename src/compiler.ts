@@ -249,19 +249,12 @@ function createArrayExpression(elements) {
     };
 }
 
-function createArrayExpress (elements) {
-    return {
-        type: 'ArrayExpression',
-        elements
-    }
-}
-
 function createCallExpression(callee, args) {
     return {
         type: 'CallExpression',
         callee: createIdentifier(callee),
         args
-    }
+    };
 }
 
 
