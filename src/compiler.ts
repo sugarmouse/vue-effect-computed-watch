@@ -291,17 +291,56 @@ function transform(ast: ASTNode): JSAST {
     return {};
 }
 
+function transformRoot(node:ASTNode) {
+    return () => {
+        if (node.type !== 'Root') return;
+
+        const vnodeJSAST = node.children[0].jsNode;
+
+        node.jsNode = {
+            type: "FunctionDecl",
+            id: {
+                type: "Identifier",
+                name: "render"
+            },
+            params: [],
+            body: [
+                {
+                    type: "ReturnStatement",
+                    return: vnodeJSAST
+                }
+            ]
+        }
+
+    }
+}
+
 function transformElement(node: ASTNode, context: TransformCtx) {
     if (context.currentNode && context.currentNode.type !== 'Element') return;
-    if (context.currentNode?.tag === 'p') {
-        context.currentNode.tag = 'h1';
-    }
+    return () => {
+        if (node.type !== 'Element') return;
+
+        const callExp = createCallExpression(
+            'h',
+            [
+                createStringLiteral(node.tag),
+            ]
+        );
+
+        node.children.length === 1 
+            ? callExp.args[0] = createArrayExpression(node.children)
+            : callExp.args.push(createArrayExpression(node.children.map(child => child.jsNode)));
+        
+        node.jsNode = callExp;
+    };
 }
 
 function trnasformText(node: ASTNode, context: TransformCtx) {
     if (node.type !== 'Text') return;
     // transform text ast node here
-    context.replaceNode({ type: 'Element', tag: 'span', children: [] });
+    // 文本节点对应的 JS AST 节点其实就是一个字符串字面量
+    // 因为只需要使用 node.content 创建一个 StringLiteral 类型的节点
+    node.jsNode = createStringLiteral(node.content);
 }
 
 // JS AST -> render function
