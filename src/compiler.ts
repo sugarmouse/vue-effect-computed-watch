@@ -1,6 +1,5 @@
 // types
 type Template = string;
-type AST = object;
 type JSAST = object;
 type RenderFuntion = (...arg: any[]) => any;
 
@@ -22,19 +21,66 @@ interface TransformCtx {
     nodeTransforms: Array<Transform>;
 }
 
+namespace JSAST {
+
+    export enum NodeType {
+        StringLiteral = 1,
+        Identifier,
+        ArrayExpression,
+        CallExpression,
+    }
+
+    export type Node = any;
+
+
+    export function createStringLiteral(value: string) {
+        return {
+            type: NodeType.StringLiteral,
+            value
+        };
+    }
+    
+    export function createIdentifier(name: string) {
+        return {
+            type: NodeType.Identifier,
+            name
+        };
+    }
+    
+    export function createArrayExpression(elements) {
+        return {
+            type: NodeType.ArrayExpression,
+            elements
+        };
+    }
+    
+    export function createCallExpression(callee, arguments:any[]) {
+        return {
+            type: NodeType.CallExpression,
+            callee: createIdentifier(callee),
+            arguments
+        };
+    }
+}
+
+
+
 
 type ASTNode_Root = {
     type: 'Root',
     children: ASTNode[];
+    jsNode?: JSAST.Node;
 };
 type ASTNode_Element = {
     type: 'Element',
     tag: string,
     children: (ASTNode_Element | ASTNode_Text)[],
+    jsNode?: JSAST.Node;
 };
 type ASTNode_Text = {
     type: 'Text',
     content: string;
+    jsNode?: JSAST.Node;
 };
 type ASTNode = ASTNode_Element | ASTNode_Text | ASTNode_Root;
 
@@ -228,34 +274,7 @@ function traverseNode(ast: ASTNode, context: TransformCtx) {
 
 }
 
-function createStringLiteral(value: string) {
-    return {
-        type: 'StringLiteral',
-        value
-    };
-}
 
-function createIdentifier(name: string) {
-    return {
-        type: 'Identifier',
-        name
-    };
-}
-
-function createArrayExpression(elements) {
-    return {
-        type: 'ArrayExpression',
-        elements
-    };
-}
-
-function createCallExpression(callee, args) {
-    return {
-        type: 'CallExpression',
-        callee: createIdentifier(callee),
-        args
-    };
-}
 
 
 
@@ -291,7 +310,8 @@ function transform(ast: ASTNode): JSAST {
     return {};
 }
 
-function transformRoot(node:ASTNode) {
+function transformRoot(node: ASTNode) {
+    if(node.type !== 'Root') return;
     return () => {
         if (node.type !== 'Root') return;
 
@@ -310,27 +330,35 @@ function transformRoot(node:ASTNode) {
                     return: vnodeJSAST
                 }
             ]
-        }
+        };
 
-    }
+    };
 }
 
 function transformElement(node: ASTNode, context: TransformCtx) {
     if (context.currentNode && context.currentNode.type !== 'Element') return;
+
+    // 在回溯阶段处理 element node，这样可以确保该标签节点的子节点全部处理完毕
     return () => {
         if (node.type !== 'Element') return;
 
-        const callExp = createCallExpression(
+        // 创建 h 函数的调用语句
+        // h 函数的第一个参数是标签名称，因此以 node.tag 创建一份字符串字面量作为第一个参数
+        const callExp = JSAST.createCallExpression(
             'h',
             [
-                createStringLiteral(node.tag),
+                JSAST.createStringLiteral(node.tag),
             ]
         );
-
-        node.children.length === 1 
-            ? callExp.args[0] = createArrayExpression(node.children)
-            : callExp.args.push(createArrayExpression(node.children.map(child => child.jsNode)));
         
+        // 处理 h 函数调用的参数
+        node.children.length === 1
+            // 如果当前标签只有一个子节点，则直接使用子节点的 jsNode 作为参数
+            ? callExp.arguments.push(node.children[0].jsNode)
+            // 如果当前标签节点有多个子节点，则创建一个 AarryExpression 节点作为参数
+            : callExp.arguments.push(JSAST.createArrayExpression(node.children.map(child => child.jsNode)));
+
+        // 将当前标签节点对应的 JSAST 添加到 jsNode 属性下
         node.jsNode = callExp;
     };
 }
@@ -340,7 +368,7 @@ function trnasformText(node: ASTNode, context: TransformCtx) {
     // transform text ast node here
     // 文本节点对应的 JS AST 节点其实就是一个字符串字面量
     // 因为只需要使用 node.content 创建一个 StringLiteral 类型的节点
-    node.jsNode = createStringLiteral(node.content);
+    node.jsNode = JSAST.createStringLiteral(node.content);
 }
 
 // JS AST -> render function
