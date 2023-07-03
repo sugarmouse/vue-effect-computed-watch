@@ -379,6 +379,16 @@ function generate(jsast: JSAST): RenderFuntion {
     return render;
 }
 
+function compile(template: Template) {
+    // 得到 模版 AST
+    const ast = parse(template);
+    // 得到 JSAST, 并且挂载在 astNode.jsNode 属性上
+    transformRoot(ast);
+    // 根据 AST 生成 JS 代码
+    const code = generate(ast.jsNode);
+    return code;
+}
+
 // debug helper code
 /**
  * Recursively outputs the type and description of a given ASTNode,
