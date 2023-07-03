@@ -443,6 +443,7 @@ type GenerateCtx = {
     currentIndent: number;
     newline(): void;
     indent(): void;
+    deIndent(): void;
 };
 
 // JS AST -> render function
@@ -459,6 +460,10 @@ function generate(node: JSAST.Node): string {
         },
         indent() {
             context.currentIndent++;
+            context.newline();
+        },
+        deIndent() {
+            context.currentIndent--;
             context.newline();
         }
 
