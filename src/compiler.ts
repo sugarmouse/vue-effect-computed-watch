@@ -383,15 +383,15 @@ function transformRoot(node: ASTNode) {
         const vnodeJSAST = node.children[0].jsNode;
 
         node.jsNode = {
-            type: "FunctionDecl",
+            type: JSAST.NodeType.FunctionDecl,
             id: {
-                type: "Identifier",
+                type: JSAST.NodeType.Identifier,
                 name: "render"
             },
             params: [],
             body: [
                 {
-                    type: "ReturnStatement",
+                    type: JSAST.NodeType.ReturnStatement,
                     return: vnodeJSAST
                 }
             ]
@@ -446,7 +446,7 @@ type GenerateCtx = {
 };
 
 // JS AST -> render function
-function generate(node: ASTNode): string {
+function generate(node: JSAST.Node): string {
 
     const context: GenerateCtx = {
         code: '',
@@ -465,7 +465,7 @@ function generate(node: ASTNode): string {
     };
 
     // 调用 genNode 函数完成代码生成工作
-    genNode(node, context);
+    JSAST.genNode(node, context);
 
     return context.code;
 }
