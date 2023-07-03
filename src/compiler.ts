@@ -470,8 +470,8 @@ function generate(node: JSAST.Node): string {
     return context.code;
 }
 
-function genNode(node:ASTNode, context:GenerateCtx) {
-
+function isDefined<T>(value: T | undefined): value is T {
+    return value !== undefined;
 }
 
 function compile(template: Template) {
@@ -480,7 +480,9 @@ function compile(template: Template) {
     // 得到 JSAST, 并且挂载在 astNode.jsNode 属性上
     transformRoot(ast);
     // 根据 AST 生成 JS 代码
-    const code = generate(ast.jsNode);
+    let code: string = "";
+    if (isDefined(ast.jsNode))
+        code = generate(ast.jsNode);
     return code;
 }
 
