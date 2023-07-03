@@ -1,7 +1,6 @@
 // types
 type Template = string;
 type JSAST = object;
-type RenderFuntion = (...arg: any[]) => any;
 
 type TokenNode_Tag = { type: 'tag', value: string; };
 type TokenNode_Text = { type: 'text', content: string; };
@@ -39,22 +38,22 @@ namespace JSAST {
             value
         };
     }
-    
+
     export function createIdentifier(name: string) {
         return {
             type: NodeType.Identifier,
             name
         };
     }
-    
+
     export function createArrayExpression(elements) {
         return {
             type: NodeType.ArrayExpression,
             elements
         };
     }
-    
-    export function createCallExpression(callee, arguments:any[]) {
+
+    export function createCallExpression(callee, arguments: any[]) {
         return {
             type: NodeType.CallExpression,
             callee: createIdentifier(callee),
@@ -311,7 +310,7 @@ function transform(ast: ASTNode): JSAST {
 }
 
 function transformRoot(node: ASTNode) {
-    if(node.type !== 'Root') return;
+    if (node.type !== 'Root') return;
     return () => {
         if (node.type !== 'Root') return;
 
@@ -350,7 +349,7 @@ function transformElement(node: ASTNode, context: TransformCtx) {
                 JSAST.createStringLiteral(node.tag),
             ]
         );
-        
+
         // 处理 h 函数调用的参数
         node.children.length === 1
             // 如果当前标签只有一个子节点，则直接使用子节点的 jsNode 作为参数
@@ -371,12 +370,42 @@ function trnasformText(node: ASTNode, context: TransformCtx) {
     node.jsNode = JSAST.createStringLiteral(node.content);
 }
 
-// JS AST -> render function
-function generate(jsast: JSAST): RenderFuntion {
-    function render() {
 
-    }
-    return render;
+type GenerateCtx = {
+    code: string;
+    push(code: string): void;
+    currentIndent: number;
+    newline(): void;
+    indent(): void;
+};
+
+// JS AST -> render function
+function generate(node: ASTNode): string {
+
+    const context: GenerateCtx = {
+        code: '',
+        push(code: string) {
+            context.code += code;
+        },
+        currentIndent: 0,
+        newline() {
+            context.code += '\n' + `  `.repeat(context.currentIndent);
+        },
+        indent() {
+            context.currentIndent++;
+            context.newline();
+        }
+
+    };
+
+    // 调用 genNode 函数完成代码生成工作
+    genNode(node, context);
+
+    return context.code;
+}
+
+function genNode(node:ASTNode, context:GenerateCtx) {
+
 }
 
 function compile(template: Template) {
