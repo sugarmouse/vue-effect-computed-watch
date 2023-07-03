@@ -23,43 +23,109 @@ interface TransformCtx {
 namespace JSAST {
 
     export enum NodeType {
-        StringLiteral = 1,
-        Identifier,
-        ArrayExpression,
+        ArrayExpression = 1,
         CallExpression,
+        FunctionDecl,
+        Identifier,
+        ReturnStatement,
+        StringLiteral,
     }
 
-    export type Node = any;
+    export type ArrayExpressionNode = {
+        type: JSAST.NodeType.ArrayExpression,
+        elements: any[];
+    };
+
+    export type CallExpressionNode = {
+        type: JSAST.NodeType.CallExpression,
+        callee: IdentifierNode,
+        arguments: any[];
+    };
+
+    export type FunctionDeclNode = {
+        type: JSAST.NodeType.FunctionDecl,
+        id: IdentifierNode,
+        params: any[],
+        body: Node[];
+    };
+
+    export type IdentifierNode = {
+        type: JSAST.NodeType.Identifier,
+        name: string;
+    };
+
+    export type ReturnStatementNode = {
+        type: JSAST.NodeType.ReturnStatement,
+        return: any;
+    };
+
+    export type StringLiteralNode = {
+        type: JSAST.NodeType.StringLiteral,
+        value: string;
+    };
+
+    export type Node = ArrayExpressionNode | CallExpressionNode | FunctionDeclNode | IdentifierNode | ReturnStatementNode | StringLiteralNode;
 
 
-    export function createStringLiteral(value: string) {
+    export function createStringLiteral(value: string): StringLiteralNode {
         return {
             type: NodeType.StringLiteral,
             value
         };
     }
 
-    export function createIdentifier(name: string) {
+    export function createIdentifier(name: string): IdentifierNode {
         return {
             type: NodeType.Identifier,
             name
         };
     }
 
-    export function createArrayExpression(elements) {
+    export function createArrayExpression(elements:any[]): ArrayExpressionNode {
         return {
             type: NodeType.ArrayExpression,
             elements
         };
     }
 
-    export function createCallExpression(callee, arguments: any[]) {
+    export function createCallExpression(callee, arguments: any[]): CallExpressionNode {
         return {
             type: NodeType.CallExpression,
             callee: createIdentifier(callee),
             arguments
         };
     }
+
+    export function genNode(node: Node, context: GenerateCtx) {
+        switch (node.type) {
+            case NodeType.FunctionDecl:
+                genFunctionDecl(node, context);
+                break;
+            case NodeType.ReturnStatement:
+                genReturnStatement(node, context);
+                break;
+            case NodeType.CallExpression:
+                genCallExpression(node, context);
+                break;
+            case NodeType.StringLiteral:
+                genStringLiteral(node, context);
+                break;
+            case NodeType.ArrayExpression:
+                genArrayExpression(node, context);
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    function genFunctionDecl(node: Node, context: GenerateCtx) { }
+    function genCallExpression(node: Node, context: GenerateCtx) { }
+    function genArrayExpression(node: Node, context: GenerateCtx) { }
+    function genStringLiteral(node: Node, context: GenerateCtx) { }
+    function genReturnStatement(node: Node, context: GenerateCtx) { }
+
+
 }
 
 
