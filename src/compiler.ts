@@ -122,18 +122,18 @@ namespace JSAST {
     function genFunctionDecl(node: Node, context: GenerateCtx) {
         if (node.type !== NodeType.FunctionDecl) return;
         const { push, indent, deIndent } = context;
-        
+
         // 函数签名
         push(`function ${node.id.name}`);
         push('(');
         genNodeList(node.params, context);
         push(')');
-        
+
         // 函数体
         push(' {');
         indent();
         node.body.forEach(n => genNode(n, context));
-        deIndent()
+        deIndent();
         push('}');
     }
 
@@ -143,11 +143,11 @@ namespace JSAST {
     function genReturnStatement(node: Node, context: GenerateCtx) { }
 
     function genNodeList(nodes: Node[], context: GenerateCtx) {
-        const {push} = context;
+        const { push } = context;
         for (let i = 0; i < nodes.length; i++) {
             const node = nodes[i];
             genNode(node, context);
-            if(i < nodes.length - 1) {
+            if (i < nodes.length - 1) {
                 push(', ');
             }
         }
