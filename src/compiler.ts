@@ -45,7 +45,7 @@ namespace JSAST {
     export type FunctionDeclNode = {
         type: JSAST.NodeType.FunctionDecl,
         id: IdentifierNode,
-        params: any[],
+        params: Node[],
         body: Node[];
     };
 
