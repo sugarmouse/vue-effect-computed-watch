@@ -142,6 +142,17 @@ namespace JSAST {
     function genStringLiteral(node: Node, context: GenerateCtx) { }
     function genReturnStatement(node: Node, context: GenerateCtx) { }
 
+    function genNodeList(nodes: Node[], context: GenerateCtx) {
+        const {push} = context;
+        for (let i = 0; i < nodes.length; i++) {
+            const node = nodes[i];
+            genNode(node, context);
+            if(i < nodes.length - 1) {
+                push(', ');
+            }
+        }
+    }
+
 
 }
 
