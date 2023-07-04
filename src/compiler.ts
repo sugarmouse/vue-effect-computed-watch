@@ -1,6 +1,6 @@
 // types
 type Template = string;
-type JSAST = object;
+// type JSAST = object;
 
 type TokenNode_Tag = { type: 'tag', value: string; };
 type TokenNode_Text = { type: 'text', content: string; };
@@ -88,7 +88,7 @@ namespace JSAST {
         };
     }
 
-    export function createCallExpression(callee:string, args: Node[]): CallExpressionNode {
+    export function createCallExpression(callee: string, args: Node[]): CallExpressionNode {
         return {
             type: NodeType.CallExpression,
             callee: createIdentifier(callee),
@@ -402,7 +402,7 @@ function traverseNode(ast: ASTNode, context: TransformCtx) {
 
 
 // template AST -> JS AST
-function transform(ast: ASTNode): JSAST {
+function transform(ast: ASTNode) {
 
     const context: TransformCtx = {
         currentNode: null,
@@ -424,13 +424,11 @@ function transform(ast: ASTNode): JSAST {
         },
         nodeTransforms: [
             trnasformText,
-            transformElement
+            transformElement,
+            transformRoot
         ]
     };
     traverseNode(ast, context);
-
-    dump(ast);
-    return {};
 }
 
 function transformRoot(node: ASTNode) {
@@ -541,7 +539,7 @@ function compile(template: Template) {
     // 得到 模版 AST
     const ast = parse(template);
     // 得到 JSAST, 并且挂载在 astNode.jsNode 属性上
-    transformRoot(ast);
+    transform(ast);
     // 根据 AST 生成 JS 代码
     let code: string = "";
     if (isDefined(ast.jsNode))
@@ -549,34 +547,5 @@ function compile(template: Template) {
     return code;
 }
 
-// debug helper code
-/**
- * Recursively outputs the type and description of a given ASTNode,
- * along with its children if it has any.
- * 
- * @param {ASTNode} node - the node to be outputted
- * @param {number} indent - the current indentation level (default 0)
- */
-function dump(node: ASTNode, indent = 0) {
-    const type = node.type;
-
-    const desc = node.type === 'Root'
-        ? ''
-        : node.type === 'Element'
-            ? node.tag
-            : node.content;
-
-    // output the node type and description with the current indentation
-    console.log(`${'-'.repeat(indent)}${type}: ${desc}`);
-
-    // if the node is not a Text node and has children, output each child
-    if (node.type !== "Text" && node.children) {
-        node.children.forEach(child => {
-            // recursively output the child, with increased indentation
-            dump(child, indent + 2);
-        });
-    }
-}
-
-const ast = parse(`<div><p>Vue</p><p>Teamplate</p></div>`);
-transform(ast);
+const code = compile(`<div><p>Vue</p><p>Teamplate</p></div>`);
+console.log(code);
