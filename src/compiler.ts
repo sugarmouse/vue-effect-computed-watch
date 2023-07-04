@@ -137,10 +137,40 @@ namespace JSAST {
         push('}');
     }
 
-    function genCallExpression(node: Node, context: GenerateCtx) { }
-    function genArrayExpression(node: Node, context: GenerateCtx) { }
-    function genStringLiteral(node: Node, context: GenerateCtx) { }
-    function genReturnStatement(node: Node, context: GenerateCtx) { }
+    function genCallExpression(node: Node, context: GenerateCtx) {
+        if (node.type !== NodeType.CallExpression) return;
+
+        const { push } = context;
+        const { callee, arguments: args } = node;
+
+        push(`${callee.name}(`);
+
+        genNodeList(args, context);
+
+        push(')');
+    }
+
+    function genArrayExpression(node: Node, context: GenerateCtx) {
+        if (node.type !== NodeType.ArrayExpression) return;
+        const { push } = context;
+        push('[');
+        genNodeList(node.elements, context);
+        push(']');
+    }
+
+    function genStringLiteral(node: Node, context: GenerateCtx) {
+        if (node.type !== NodeType.StringLiteral) return;
+        const { push } = context;
+        push(`'${node.value}'`);
+    }
+
+    function genReturnStatement(node: Node, context: GenerateCtx) {
+        if (node.type !== NodeType.ReturnStatement) return;
+        const { push } = context;
+        push('return ');
+
+        genNode(node.return, context);
+    }
 
     function genNodeList(nodes: Node[], context: GenerateCtx) {
         const { push } = context;
