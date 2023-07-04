@@ -88,11 +88,11 @@ namespace JSAST {
         };
     }
 
-    export function createCallExpression(callee, arguments: any[]): CallExpressionNode {
+    export function createCallExpression(callee:string, args: Node[]): CallExpressionNode {
         return {
             type: NodeType.CallExpression,
             callee: createIdentifier(callee),
-            arguments
+            arguments: args
         };
     }
 
