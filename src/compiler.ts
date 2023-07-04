@@ -81,7 +81,7 @@ namespace JSAST {
         };
     }
 
-    export function createArrayExpression(elements:any[]): ArrayExpressionNode {
+    export function createArrayExpression(elements: any[]): ArrayExpressionNode {
         return {
             type: NodeType.ArrayExpression,
             elements
@@ -119,7 +119,24 @@ namespace JSAST {
         }
     }
 
-    function genFunctionDecl(node: Node, context: GenerateCtx) { }
+    function genFunctionDecl(node: Node, context: GenerateCtx) {
+        if (node.type !== NodeType.FunctionDecl) return;
+        const { push, indent, deIndent } = context;
+        
+        // 函数签名
+        push(`function ${node.id.name}`);
+        push('(');
+        genNodeList(node.params, context);
+        push(')');
+        
+        // 函数体
+        push(' {');
+        indent();
+        node.body.forEach(n => genNode(n, context));
+        deIndent()
+        push('}');
+    }
+
     function genCallExpression(node: Node, context: GenerateCtx) { }
     function genArrayExpression(node: Node, context: GenerateCtx) { }
     function genStringLiteral(node: Node, context: GenerateCtx) { }
