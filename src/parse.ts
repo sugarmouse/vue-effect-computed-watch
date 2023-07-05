@@ -62,8 +62,75 @@ function parse(str: string) {
  * ]
  */
 
-function parseChildren(context: ParseContext, nodes: ASTNode[]): ASTNode[] {
+// 标签节点 div
+// 文本插值节点 {{ value }}
+// 普通文本节点 text
+// html 注释节点
+// CDATA 节点 <![CDATA[ xxx ]]>
+function parseChildren(context: ParseContext, ancestors: ASTNode[]): ASTNode[] {
+    let nodes: ASTNode[] = [];
 
+    const { source, mode } = context;
+
+    while (!isEnd(context, ancestors)) {
+        let node: ASTNode | null = null;
+
+        // 只有 DATA 和 CDATA 模式才支持插值节点的解析
+        if (mode === TextModes.DATA || mode === TextModes.RCDATA) {
+
+            if (mode === TextModes.DATA && source[0] === "<") {
+                if (source[1] === '!') {
+                    if (source.startsWith('<!--')) {
+                        node = parseComment(context);
+                    } else if (source.startsWith('<![CDATA[')) {
+                        node = parseCData(context);
+                    } else {
+                        // error
+                    }
+                } else if (source[1] === '/') {
+                    // end tag
+                    // error
+                } else if (/[a-z]/i.test(source[1])) {
+                    node = parseElement(context);
+                }
+
+            } else if (source.startsWith('{{')) {
+
+                node = parseInterpolation(context);
+            }
+        }
+
+        // node 不存在说明处于其他模式，不是 DATA 也不是 RCDATA
+        // 作为文本处理
+        if (!node) {
+            node = parseText(context);
+        }
+        nodes.push(node);
+    }
+    return nodes;
+}
+
+function isEnd(context: ParseContext, ancestors: ASTNode[]): boolean {
+    throw new Error("Function not implemented.");
+}
+function parseComment(context: ParseContext): ASTNode {
+    throw new Error("Function not implemented.");
+}
+
+function parseCData(context: ParseContext): ASTNode {
+    throw new Error("Function not implemented.");
+}
+
+function parseElement(context: ParseContext): ASTNode {
+    throw new Error("Function not implemented.");
+}
+
+function parseInterpolation(context: ParseContext): ASTNode {
+    throw new Error("Function not implemented.");
+}
+
+function parseText(context: ParseContext): ASTNode {
+    throw new Error("Function not implemented.");
 }
 
 export { };
