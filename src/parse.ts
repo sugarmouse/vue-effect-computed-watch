@@ -122,7 +122,14 @@ function parseCData(context: ParseContext): ASTNode {
 }
 
 function parseElement(context: ParseContext): ASTNode {
-    throw new Error("Function not implemented.");
+    // 解析开始标签
+    const element = parseTag();
+    // 递归调用 parseChildren 函数对当前标签的子节点解析
+    element.children = parseChildren();
+    // 解析结束标签
+    parseEndTag();
+
+    return element;
 }
 
 function parseInterpolation(context: ParseContext): ASTNode {
