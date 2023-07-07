@@ -8,6 +8,8 @@ enum TextModes {
 type ParseContext = {
     source: string,
     mode: TextModes;
+    advanceBy(num: number): void;
+    advanceSpaces(): void;
 };
 
 enum NodeType {
@@ -35,6 +37,17 @@ function parse(str: string): ASTNode_Root {
     const context = {
         source: str,
         mode: TextModes.DATA,
+        // 消费指定数量的字符
+        advanceBy(num: number) {
+            context.source = context.source.slice(num);
+        },
+        // 消费无用的空白字符
+        advanceSpaces() {
+            const match = /^[\t\r\n\f ]+/.exec(context.source);
+            if (match) {
+                context.advanceBy(match[0].length);
+            }
+        }
     };
 
     // 第二个参数代表由父节点构成的节点栈，初始为空
