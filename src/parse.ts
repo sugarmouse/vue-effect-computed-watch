@@ -23,16 +23,15 @@ type ASTNode_Root = {
 type ASTNode_Element = {
     type: NodeType.Element,
     tag: string,
-    children: (ASTNode_Element | ASTNode_Text)[],
-};
-type ASTNode_Text = {
-    type: NodeType.Text,
-    content: string;
+    children: ASTNode[],
+    props: any[],
+    isSelfClosing: boolean;
 };
 
-type ASTNode = ASTNode_Element | ASTNode_Text | ASTNode_Root;
 
-function parse(str: string) {
+type ASTNode = ASTNode_Element;
+
+function parse(str: string): ASTNode_Root {
     const context = {
         source: str,
         mode: TextModes.DATA,
@@ -42,7 +41,7 @@ function parse(str: string) {
     const nodes = parseChildren(context, []);
 
     return {
-        type: 'Root',
+        type: NodeType.Root,
         children: nodes
     };
 }
@@ -91,7 +90,7 @@ function parseChildren(context: ParseContext, ancestors: ASTNode[]): ASTNode[] {
                     console.error('invalid end tag');
                     continue;
                 } else if (/[a-z]/i.test(source[1])) {
-                    node = parseElement(context);
+                    node = parseElement(context, ancestors);
                 }
 
             } else if (source.startsWith('{{')) {
@@ -112,7 +111,7 @@ function parseChildren(context: ParseContext, ancestors: ASTNode[]): ASTNode[] {
 
 function isEnd(context: ParseContext, ancestors: ASTNode[]): boolean {
     if (!context.source) return true;
-    
+
     // 与整个父级节点栈中的所有节点作比较
     for (let i = ancestors.length - 1; i >= 0; i--) {
         // 如果遇到结束标签，并且该标签与父级标签同名，则停止当前状态机
@@ -140,8 +139,8 @@ function parseElement(context: ParseContext, ancestors: ASTNode[]): ASTNode {
     ancestors.pop();
 
     // 解析结束标签
-    if(context.source.startsWith(`</${element.tag}`)) {
-        parseTag(context, 'end')
+    if (context.source.startsWith(`</${element.tag}`)) {
+        parseTag(context, 'end');
     } else {
         console.error(`${element.tag} is not closed`);
     }
