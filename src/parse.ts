@@ -132,6 +132,7 @@ function isEnd(context: ParseContext, ancestors: ASTNode[]): boolean {
             return true;
         }
     }
+    return false;
 }
 function parseComment(context: ParseContext): ASTNode {
     throw new Error("Function not implemented.");
