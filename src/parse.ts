@@ -19,18 +19,15 @@ enum NodeType {
 type ASTNode_Root = {
     type: NodeType.Root,
     children: ASTNode[];
-    jsNode?: JSAST.Node;
 };
 type ASTNode_Element = {
     type: NodeType.Element,
     tag: string,
     children: (ASTNode_Element | ASTNode_Text)[],
-    jsNode?: JSAST.Node;
 };
 type ASTNode_Text = {
     type: NodeType.Text,
     content: string;
-    jsNode?: JSAST.Node;
 };
 
 type ASTNode = ASTNode_Element | ASTNode_Text | ASTNode_Root;
@@ -67,6 +64,7 @@ function parse(str: string) {
 // 普通文本节点 text
 // html 注释节点
 // CDATA 节点 <![CDATA[ xxx ]]>
+// parseChildren 函数本质上是一个状态机，遇到一个 tag 就会开启一个状态机，遇到相匹配的结束标签就会结束此状态机
 function parseChildren(context: ParseContext, ancestors: ASTNode[]): ASTNode[] {
     let nodes: ASTNode[] = [];
 
@@ -90,6 +88,8 @@ function parseChildren(context: ParseContext, ancestors: ASTNode[]): ASTNode[] {
                 } else if (source[1] === '/') {
                     // end tag
                     // error
+                    console.error('invalid end tag');
+                    continue;
                 } else if (/[a-z]/i.test(source[1])) {
                     node = parseElement(context);
                 }
@@ -111,7 +111,15 @@ function parseChildren(context: ParseContext, ancestors: ASTNode[]): ASTNode[] {
 }
 
 function isEnd(context: ParseContext, ancestors: ASTNode[]): boolean {
-    throw new Error("Function not implemented.");
+    if (!context.source) return true;
+    
+    // 与整个父级节点栈中的所有节点作比较
+    for (let i = ancestors.length - 1; i >= 0; i--) {
+        // 如果遇到结束标签，并且该标签与父级标签同名，则停止当前状态机
+        if (parent && context.source.startsWith(`</${ancestors[i].tag}>`)) {
+            return true;
+        }
+    }
 }
 function parseComment(context: ParseContext): ASTNode {
     throw new Error("Function not implemented.");
@@ -121,13 +129,22 @@ function parseCData(context: ParseContext): ASTNode {
     throw new Error("Function not implemented.");
 }
 
-function parseElement(context: ParseContext): ASTNode {
+function parseElement(context: ParseContext, ancestors: ASTNode[]): ASTNode {
     // 解析开始标签
-    const element = parseTag();
+    const element = parseTag(context);
+    if(element.isSelfClosing) return element;
+    ancestors.push(element);
+
     // 递归调用 parseChildren 函数对当前标签的子节点解析
-    element.children = parseChildren();
+    element.children = parseChildren(context, ancestors);
+    ancestors.pop();
+
     // 解析结束标签
-    parseEndTag();
+    if(context.source.startsWith(`</${element.tag}`)) {
+        parseTag(context, 'end')
+    } else {
+        console.error(`${element.tag} is not closed`);
+    }
 
     return element;
 }
