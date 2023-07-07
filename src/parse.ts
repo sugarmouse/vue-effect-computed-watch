@@ -194,6 +194,8 @@ function parseTag(context: ParseContext, type: 'start' | 'end' = 'start'): ASTNo
     advanceBy(match[0].length);
     advanceSpaces();
 
+    const props = parseAttributes(context);
+
     // 如果是自闭和得消费两个字符，不是的话消费一个
     const isSelfClosing = context.source.startsWith(`/>`);
     advanceBy(isSelfClosing ? 2 : 1);
@@ -201,10 +203,23 @@ function parseTag(context: ParseContext, type: 'start' | 'end' = 'start'): ASTNo
     return {
         type: NodeType.Element,
         tag,
-        props: [],
+        props,
         children: [],
         isSelfClosing
     };
+}
+
+function parseAttributes(context: ParseContext) {
+    const props = [];
+
+    while (
+        !context.source.startsWith('>')
+        && !context.source.startsWith('/>')
+    ) {
+        // 
+
+    }
+    return props;
 }
 
 export { };
