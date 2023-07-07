@@ -145,7 +145,16 @@ function parseCData(context: ParseContext): ASTNode {
 function parseElement(context: ParseContext, ancestors: ASTNode[]): ASTNode {
     // 解析开始标签
     const element = parseTag(context);
-    if(element.isSelfClosing) return element;
+    if (element.isSelfClosing) return element;
+
+    if (element.tag === 'textarea' || element.tag === 'title') {
+        context.mode = TextModes.RCDATA;
+    } else if (/style | xmp | iframe | noembed | noframes | noscript/.test(element.tag)) {
+        context.mode = TextModes.RAWTEXT;
+    } else {
+        context.mode = TextModes.DATA;
+    }
+
     ancestors.push(element);
 
     // 递归调用 parseChildren 函数对当前标签的子节点解析
@@ -168,6 +177,34 @@ function parseInterpolation(context: ParseContext): ASTNode {
 
 function parseText(context: ParseContext): ASTNode {
     throw new Error("Function not implemented.");
+}
+
+function parseTag(context: ParseContext, type: 'start' | 'end' = 'start'): ASTNode_Element {
+    const { advanceBy, advanceSpaces } = context;
+
+    const match = type === 'start'
+        ? /^<([a-z][^\t\r\n\f />]*)/i.exec(context.source)
+        : /^<\/([a-z][^\t\r\n\f />]*)/i.exec(context.source);
+
+    if (!match) {
+        throw new Error('invalid tag');
+    }
+
+    const tag = match[1];
+    advanceBy(match[0].length);
+    advanceSpaces();
+
+    // 如果是自闭和得消费两个字符，不是的话消费一个
+    const isSelfClosing = context.source.startsWith(`/>`);
+    advanceBy(isSelfClosing ? 2 : 1);
+
+    return {
+        type: NodeType.Element,
+        tag,
+        props: [],
+        children: [],
+        isSelfClosing
+    };
 }
 
 export { };
