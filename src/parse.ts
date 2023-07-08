@@ -14,6 +14,7 @@ type ParseContext = {
 
 enum NodeType {
     Element = 'Element',
+    Attribute = 'Attribute',
     Text = 'Text',
     Root = 'Root',
 }
@@ -29,7 +30,11 @@ type ASTNode_Element = {
     props: any[],
     isSelfClosing: boolean;
 };
-
+type ASTNode_Attribute = {
+    type: NodeType.Attribute,
+    name: string,
+    value: string;
+};
 
 type ASTNode = ASTNode_Element;
 
@@ -209,15 +214,53 @@ function parseTag(context: ParseContext, type: 'start' | 'end' = 'start'): ASTNo
     };
 }
 
-function parseAttributes(context: ParseContext) {
-    const props = [];
+function parseAttributes(context: ParseContext): ASTNode_Attribute[] {
+    const { advanceBy, advanceSpaces } = context;
+    const props: ASTNode_Attribute[] = [];
 
     while (
         !context.source.startsWith('>')
         && !context.source.startsWith('/>')
     ) {
-        // 
+        // 匹配属性名
+        const match = /^[^\t\r\n\f />][^\t\r\n\f />=]*/.exec(context.source);
+        if (!match) throw new Error("parse attributes error");
+        const name = match[0];
+        // 消费属性名
+        advanceBy(name.length);
+        advanceSpaces();
+        // 消费 "=" 
+        advanceBy(1);
+        advanceSpaces();
 
+        let value = "";
+        const quote = context.source[0];
+        // 检查属性值是否有引号包裹
+        const isQuoted = quote === '"' || quote === "'";
+        if (isQuoted) {
+            // 消费引号
+            advanceBy(1);
+            const endQuoteIndex = context.source.indexOf(quote);
+            if (endQuoteIndex > -1) {
+                value = context.source.slice(0, endQuoteIndex);
+                advanceBy(value.length);
+                advanceBy(1);
+            } else {
+                console.error("lack of quotation mark");
+            }
+        } else {
+            // 匹配到下一个空格或者 ">" 字符
+            const match = /^[^\t\r\n\f >]+/.exec(context.source);
+            if (!match) throw new Error("parse Attributes error: can't find unquoted value of attribute");
+            value = match[0];
+            advanceBy(value.length);
+        }
+        advanceSpaces();
+        props.push({
+            type: NodeType.Attribute,
+            name,
+            value
+        });
     }
     return props;
 }
