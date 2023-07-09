@@ -35,8 +35,12 @@ type ASTNode_Attribute = {
     name: string,
     value: string;
 };
+type ASTNode_Text = {
+    type: NodeType.Text,
+    content:string,
+}
 
-type ASTNode = ASTNode_Element;
+type ASTNode = ASTNode_Element | ASTNode_Attribute | ASTNode_Text;
 
 function parse(str: string): ASTNode_Root {
     const context = {
@@ -180,8 +184,29 @@ function parseInterpolation(context: ParseContext): ASTNode {
     throw new Error("Function not implemented.");
 }
 
-function parseText(context: ParseContext): ASTNode {
-    throw new Error("Function not implemented.");
+function parseText(context: ParseContext): ASTNode_Text {
+    let endIndex = context.source.length;
+    const ltIndex = context.source.indexOf('<');
+
+    const delimiterIndex = context.source.indexOf('{{');
+
+    if (ltIndex > -1 && ltIndex < endIndex) {
+        // 解析到下一个特殊字符 <
+        endIndex = ltIndex
+    }
+
+    if(delimiterIndex > -1 && delimiterIndex < endIndex) {
+        endIndex = delimiterIndex
+    }
+
+    const content = context.source.slice(0, endIndex);
+
+    context.advanceBy(content.length)
+
+    return {
+        type:NodeType.Text,
+        content
+    }
 }
 
 function parseTag(context: ParseContext, type: 'start' | 'end' = 'start'): ASTNode_Element {
@@ -266,3 +291,5 @@ function parseAttributes(context: ParseContext): ASTNode_Attribute[] {
 }
 
 export { };
+
+const template = `<div>Text</div>`;
