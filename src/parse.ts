@@ -134,6 +134,8 @@ function parseChildren(context: ParseContext, ancestors: ASTNode[]): ASTNode[] {
 function isEnd(context: ParseContext, ancestors: ASTNode[]): boolean {
     if (!context.source) return true;
 
+    const parent = ancestors[ancestors.length - 1];
+
     // 与整个父级节点栈中的所有节点作比较
     for (let i = ancestors.length - 1; i >= 0; i--) {
         // 如果遇到结束标签，并且该标签与父级标签同名，则停止当前状态机
@@ -291,5 +293,3 @@ function parseAttributes(context: ParseContext): ASTNode_Attribute[] {
 }
 
 export { };
-
-const template = `<div>Text</div>`;
