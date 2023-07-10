@@ -37,10 +37,18 @@ type ASTNode_Attribute = {
 };
 type ASTNode_Text = {
     type: NodeType.Text,
-    content:string,
-}
+    content: string,
+};
 
 type ASTNode = ASTNode_Element | ASTNode_Attribute | ASTNode_Text;
+
+const namedCharacterReferneces = {
+    "gt": ">",
+    "gt;": ">",
+    "lt": "<",
+    "lt;": "<",
+    "ltcc;": "⪦"
+};
 
 function parse(str: string): ASTNode_Root {
     const context = {
@@ -194,21 +202,21 @@ function parseText(context: ParseContext): ASTNode_Text {
 
     if (ltIndex > -1 && ltIndex < endIndex) {
         // 解析到下一个特殊字符 <
-        endIndex = ltIndex
+        endIndex = ltIndex;
     }
 
-    if(delimiterIndex > -1 && delimiterIndex < endIndex) {
-        endIndex = delimiterIndex
+    if (delimiterIndex > -1 && delimiterIndex < endIndex) {
+        endIndex = delimiterIndex;
     }
 
     const content = context.source.slice(0, endIndex);
 
-    context.advanceBy(content.length)
+    context.advanceBy(content.length);
 
     return {
-        type:NodeType.Text,
-        content
-    }
+        type: NodeType.Text,
+        content: decodeHtml(content)
+    };
 }
 
 function parseTag(context: ParseContext, type: 'start' | 'end' = 'start'): ASTNode_Element {
@@ -290,6 +298,87 @@ function parseAttributes(context: ParseContext): ASTNode_Attribute[] {
         });
     }
     return props;
+}
+
+function decodeHtml(rawText: string, asAttr: boolean = false): string {
+    let offset = 0;
+    const end = rawText.length;
+
+    // 解码后的文本
+    let decodeText = '';
+    let maxCRNameLength = 0;
+
+    const advance = (length: number) => {
+        offset += length;
+        rawText = rawText.slice(length);
+    };
+
+    while (offset < end) {
+        // 找到匹配字符引用的开始部分， head[0] 有可能是 "&","&#","&#x"
+        const head = /&(?:#x?)/i.exec(rawText);
+
+        // 没找到匹配字符串的头，没有需要解码的内容了
+        if (!head) {
+            const remaining = end - offset;
+            decodeText += rawText.slice(0, remaining);
+            advance(remaining);
+            break;
+        }
+
+        // 消费 html 实体之前的字符串
+        decodeText += rawText.slice(0, head.index);
+        advance(head.index);
+
+        if (head[0] === '&') {
+            // 
+            let name = '';
+            let value: string | null = null;
+
+
+            if (/[0-9a-z]/i.test(rawText[1])) {
+                // 计算出引用表中实体名称最大的长度
+                if (!maxCRNameLength) {
+                    maxCRNameLength = Object.keys(namedCharacterReferneces).reduce(
+                        (max, name) => Math.max(max, name.length),
+                        0
+                    );
+                }
+
+                // 从最长的长度开始找，检查有没有可以与表中匹配的实体名称
+                for (let length = maxCRNameLength; !value && length > 0; length--) {
+                    name = rawText.substring(1, length);
+                    value = namedCharacterReferneces[name];
+                }
+
+
+                if (value) {
+                    const semi = name.endsWith(";");
+
+                    if (
+                        asAttr
+                        && !semi
+                        && /[=a-z0-9]/i.test(rawText[name.length + 1]) || ''
+                    ) {
+                        decodeText += '&' + name;
+                        advance(1 + name.length);
+                    } else {
+                        decodeText += value;
+                        advance(1 + name.length);
+                    }
+                } else {
+                    // 没有找到对应的值，说明解码失败
+                    decodeText += '&' + name;
+                    advance(1 + name.length);
+                }
+            } else {
+                // 如果 & 字符的下一个字符不是 ASCII 字母或者数字，则将字符 & 作为普通文本
+                decodeText += '&';
+                advance(1);
+            }
+        }
+    }
+
+    return decodeText;
 }
 
 export { };
