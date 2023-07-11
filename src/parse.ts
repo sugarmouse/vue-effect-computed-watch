@@ -50,6 +50,36 @@ const namedCharacterReferneces = {
     "ltcc;": "⪦"
 };
 
+const CCR_REPLACEMENTS = {
+    0x80: 0x20ac,
+    0x82: 0x201a,
+    0x83: 0x0192,
+    0x84: 0x201e,
+    0x85: 0x2026,
+    0x86: 0x2020,
+    0x87: 0x2021,
+    0x88: 0x02c6,
+    0x89: 0x2030,
+    0x8a: 0x0160,
+    0x8b: 0x2039,
+    0x8c: 0x0152,
+    0x8e: 0x017d,
+    0x91: 0x2018,
+    0x92: 0x2019,
+    0x93: 0x201c,
+    0x94: 0x201d,
+    0x95: 0x2022,
+    0x96: 0x2013,
+    0x97: 0x2014,
+    0x98: 0x02dc,
+    0x99: 0x2122,
+    0x9a: 0x0161,
+    0x9b: 0x203a,
+    0x9c: 0x0153,
+    0x9e: 0x017e,
+    0x9f: 0x0178
+};
+
 function parse(str: string): ASTNode_Root {
     const context = {
         source: str,
@@ -315,7 +345,7 @@ function decodeHtml(rawText: string, asAttr: boolean = false): string {
 
     while (offset < end) {
         // 找到匹配字符引用的开始部分， head[0] 有可能是 "&","&#","&#x"
-        const head = /&(?:#x?)/i.exec(rawText);
+        const head = /&(?:#x?)?/i.exec(rawText);
 
         // 没找到匹配字符串的头，没有需要解码的内容了
         if (!head) {
@@ -374,6 +404,40 @@ function decodeHtml(rawText: string, asAttr: boolean = false): string {
                 // 如果 & 字符的下一个字符不是 ASCII 字母或者数字，则将字符 & 作为普通文本
                 decodeText += '&';
                 advance(1);
+            }
+        } else {
+            const hex = head[0] === '&#x';
+            const pattern = hex ? /^&#x([0-9a-f]+);?/i : /^&#([0-9]+);?/;
+
+            const body = pattern.exec(rawText);
+
+            if (body) {
+                let cp = Number.parseInt(body[1], hex ? 16 : 10);
+
+                if (cp === 0) {
+                    cp = 0xfffd;
+                } else if (cp > 0x10ffff) {
+                    cp = 0xfffd;
+                } else if (cp >= 0xd800 && cp <= 0xdfff) {
+                    cp = 0xfffd;
+                } else if ((cp >= 0xfdd0 && cp <= 0xfdef) || (cp & 0xfffe) === 0xfffe) {
+                    // 码点值处于 noncharacter 范围内，则什么都不做
+                } else if (
+                    (cp >= 0x01 && cp <= 0x08) ||
+                    cp === 0x0b ||
+                    (cp >= 0x0d && cp <= 0x1f) ||
+                    (cp >= 0x7f && cp <= 0x9f)
+                ) {
+                    // 在 CCR_REPLACEMENTS 表中查找替换码点，如果找不到，则使用原码点
+                    cp = CCR_REPLACEMENTS[cp] || cp;
+                }
+
+                decodeText += String.fromCodePoint(cp);
+                advance(body[0].length);
+            } else {
+                // 如果没有匹配，则不进行解码操作，只是把 head[0] 追加到 decodeText 上
+                decodeText += head[0];
+                advance(head[0].length);
             }
         }
     }
