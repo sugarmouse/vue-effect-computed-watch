@@ -17,8 +17,16 @@ enum NodeType {
     Attribute = 'Attribute',
     Text = 'Text',
     Root = 'Root',
+    Interpolation = "Interpolation"
 }
 
+type ASTNode_Interpolation =  {
+    type: NodeType.Interpolation,
+    content: {
+        type: string,
+        content: string,
+    }
+}
 type ASTNode_Root = {
     type: NodeType.Root,
     children: ASTNode[];
@@ -40,7 +48,7 @@ type ASTNode_Text = {
     content: string,
 };
 
-type ASTNode = ASTNode_Element | ASTNode_Attribute | ASTNode_Text;
+type ASTNode = ASTNode_Element | ASTNode_Attribute | ASTNode_Text | ASTNode_Interpolation;
 
 const namedCharacterReferneces = {
     "gt": ">",
@@ -220,8 +228,27 @@ function parseElement(context: ParseContext, ancestors: ASTNode[]): ASTNode {
     return element;
 }
 
-function parseInterpolation(context: ParseContext): ASTNode {
-    throw new Error("Function not implemented.");
+function parseInterpolation(context: ParseContext): ASTNode_Interpolation {
+    context.advanceBy("{{".length)
+
+    const closeIndex = context.source.indexOf("}}")
+    if(closeIndex < 0) {
+        console.error("差值缺少结束界定符")
+    }
+
+    const content = context.source.slice(0, closeIndex);
+
+    context.advanceBy(content.length)
+    context.advanceBy("}}".length)
+
+    return {
+        type: NodeType.Interpolation,
+        content: {
+            type: 'Expression',
+            content: decodeHtml(content)
+        }
+    }
+
 }
 
 function parseText(context: ParseContext): ASTNode_Text {
