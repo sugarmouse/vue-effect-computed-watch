@@ -53,7 +53,7 @@ type ASTNode_Text = {
     content: string,
 };
 
-type ASTNode = ASTNode_Element | ASTNode_Attribute | ASTNode_Text | ASTNode_Interpolation;
+type ASTNode = ASTNode_Element | ASTNode_Attribute | ASTNode_Text | ASTNode_Interpolation | ASTNode_Comment;
 
 const namedCharacterReferneces = {
     "gt": ">",
