@@ -17,16 +17,21 @@ enum NodeType {
     Attribute = 'Attribute',
     Text = 'Text',
     Root = 'Root',
-    Interpolation = "Interpolation"
+    Interpolation = "Interpolation",
+    Comment = "Comment"
 }
 
-type ASTNode_Interpolation =  {
+type ASTNode_Comment = {
+    type: NodeType.Comment,
+    content: string,
+};
+type ASTNode_Interpolation = {
     type: NodeType.Interpolation,
     content: {
         type: string,
         content: string,
-    }
-}
+    };
+};
 type ASTNode_Root = {
     type: NodeType.Root,
     children: ASTNode[];
@@ -191,8 +196,17 @@ function isEnd(context: ParseContext, ancestors: ASTNode[]): boolean {
     }
     return false;
 }
-function parseComment(context: ParseContext): ASTNode {
-    throw new Error("Function not implemented.");
+function parseComment(context: ParseContext): ASTNode_Comment {
+    context.advanceBy('<!--'.length);
+    let closeIndex = context.source.indexOf('-->');
+
+    const content = context.source.slice(0, closeIndex);
+    context.advanceBy(content.length);
+    context.advanceBy('-->'.length);
+    return {
+        type: NodeType.Comment,
+        content,
+    };
 }
 
 function parseCData(context: ParseContext): ASTNode {
@@ -229,17 +243,17 @@ function parseElement(context: ParseContext, ancestors: ASTNode[]): ASTNode {
 }
 
 function parseInterpolation(context: ParseContext): ASTNode_Interpolation {
-    context.advanceBy("{{".length)
+    context.advanceBy("{{".length);
 
-    const closeIndex = context.source.indexOf("}}")
-    if(closeIndex < 0) {
-        console.error("差值缺少结束界定符")
+    const closeIndex = context.source.indexOf("}}");
+    if (closeIndex < 0) {
+        console.error("差值缺少结束界定符");
     }
 
     const content = context.source.slice(0, closeIndex);
 
-    context.advanceBy(content.length)
-    context.advanceBy("}}".length)
+    context.advanceBy(content.length);
+    context.advanceBy("}}".length);
 
     return {
         type: NodeType.Interpolation,
@@ -247,7 +261,7 @@ function parseInterpolation(context: ParseContext): ASTNode_Interpolation {
             type: 'Expression',
             content: decodeHtml(content)
         }
-    }
+    };
 
 }
 
