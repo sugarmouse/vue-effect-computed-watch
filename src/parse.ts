@@ -137,7 +137,7 @@ function parse(str: string): ASTNode_Root {
 // html 注释节点
 // CDATA 节点 <![CDATA[ xxx ]]>
 // parseChildren 函数本质上是一个状态机，遇到一个 tag 就会开启一个状态机，遇到相匹配的结束标签就会结束此状态机
-function parseChildren(context: ParseContext, ancestors: ASTNode[]): ASTNode[] {
+function parseChildren(context: ParseContext, ancestors: ASTNode_Element[]): ASTNode[] {
     let nodes: ASTNode[] = [];
 
     const { source, mode } = context;
@@ -182,7 +182,7 @@ function parseChildren(context: ParseContext, ancestors: ASTNode[]): ASTNode[] {
     return nodes;
 }
 
-function isEnd(context: ParseContext, ancestors: ASTNode[]): boolean {
+function isEnd(context: ParseContext, ancestors: ASTNode_Element[]): boolean {
     if (!context.source) return true;
 
     const parent = ancestors[ancestors.length - 1];
@@ -213,7 +213,7 @@ function parseCData(context: ParseContext): ASTNode {
     throw new Error("Function not implemented.");
 }
 
-function parseElement(context: ParseContext, ancestors: ASTNode[]): ASTNode {
+function parseElement(context: ParseContext, ancestors: ASTNode_Element[]): ASTNode {
     // 解析开始标签
     const element = parseTag(context);
     if (element.isSelfClosing) return element;
