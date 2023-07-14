@@ -21,6 +21,12 @@ enum NodeType {
     Comment = "Comment"
 }
 
+enum PatchFlags  {
+    TEXT = 1,
+    CLASS = 2,
+    STYLE = 3,
+}
+
 type ASTNode_Comment = {
     type: NodeType.Comment,
     content: string,
